@@ -1,0 +1,1198 @@
+i have 3 model of machine learning to predict sales, i will provide code for each of them
+the each model will predict their own range of time from daily, weekly, monthly
+
+daily
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='xgboost')
+
+try:
+    df_full = pd.read_csv("retail_store_inventory.csv")
+except FileNotFoundError:
+    print("Error: retail_store_inventory.csv not found. Please ensure the file is uploaded.")
+    df_full = pd.DataFrame()
+    # --- Initial Data Inspection and Preprocessing ---
+if not df_full.empty:
+    print("Dataset loaded successfully.")
+    print("Original dataset shape:", df_full.shape)
+    df_full['Date'] = pd.to_datetime(df_full['Date'])
+    df_full = df_full.sort_values(by=['Store ID', 'Product ID', 'Date']).reset_index(drop=True)
+    print("\nMissing values before any processing:\n", df_full.isnull().sum())
+
+    # --- Configuration: Select Store ---
+    if df_full['Store ID'].nunique() > 0:
+
+        TARGET_STORE_ID = df_full['Store ID'].unique()[0] 
+        print(f"\nFocusing on Store ID: {TARGET_STORE_ID} for model.")
+        df_store_all_products = df_full[df_full['Store ID'] == TARGET_STORE_ID].copy()
+        if df_store_all_products.empty:
+            print(f"No data found for Store ID: {TARGET_STORE_ID}.")
+    else:
+        TARGET_STORE_ID = None
+        df_store_all_products = pd.DataFrame()
+        print("No Store IDs found in the dataset.")
+else:
+    TARGET_STORE_ID = None
+    df_store_all_products = pd.DataFrame()
+
+static_categorical_features_to_ohe = []
+time_varying_categorical_features_to_ohe_t_plus_1 = []
+
+if not df_store_all_products.empty:
+    print(f"\nStarting feature engineering for Store {TARGET_STORE_ID} (all products)...")
+    df_fe = df_store_all_products.copy()
+
+    # 1. Target and shifted date for target
+    df_fe['target_UnitsSold_t+1'] = df_fe.groupby('Product ID')['Units Sold'].shift(-1)
+    df_fe['Date_t+1'] = df_fe.groupby('Product ID')['Date'].shift(-1)
+
+    # 2. Shifted exogenous variables for day t+1 (time-varying)
+    exog_cols_to_shift = ['Demand Forecast', 'Price', 'Discount', 
+                          'Weather Condition', 'Holiday/Promotion', 'Seasonality']
+    for col in exog_cols_to_shift:
+        if col in df_fe.columns:
+            df_fe[f'{col}_t+1'] = df_fe.groupby('Product ID')[col].shift(-1)
+    
+    # 3. Lag features for 'Units Sold' (grouped by Product ID)
+    for i in range(1, 8): 
+        df_fe[f'UnitsSold_lag_{i}'] = df_fe.groupby('Product ID')['Units Sold'].shift(i-1)
+
+    # 4. Rolling window statistics for 'Units Sold' (grouped by Product ID)
+    # These are calculated based on history up to t-1 for predicting t+1
+    df_fe['UnitsSold_roll_mean_7_lag1'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+        lambda x: x.shift(1).rolling(window=7, min_periods=1).mean()
+    )
+    df_fe['UnitsSold_roll_std_7_lag1'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+        lambda x: x.shift(1).rolling(window=7, min_periods=1).std()
+    )
+        
+    # Inventory Level at time t
+    if 'Inventory Level' in df_fe.columns:
+        df_fe['InventoryLevel_t'] = df_fe['Inventory Level']
+    else:
+        df_fe['InventoryLevel_t'] = np.nan
+
+    # --- 5. Clean up based on essential shifts ---
+    essential_shifted_cols_for_dropna = ['target_UnitsSold_t+1', 'Date_t+1', 
+                                         'UnitsSold_lag_7', 'UnitsSold_roll_mean_7_lag1']
+    for col in exog_cols_to_shift:
+        if f'{col}_t+1' in df_fe.columns:
+            essential_shifted_cols_for_dropna.append(f'{col}_t+1')
+    
+    valid_dropna_subset = [col for col in essential_shifted_cols_for_dropna if col in df_fe.columns]
+    if valid_dropna_subset:
+        df_fe = df_fe.dropna(subset=valid_dropna_subset)
+    
+    # --- 6. Date features for day t+1 ---
+    date_feature_names = ['t+1_DayOfWeek', 't+1_Month', 't+1_Year', 't+1_DayOfYear', 't+1_WeekOfYear', 't+1_IsWeekend']
+    if not df_fe.empty and 'Date_t+1' in df_fe.columns:
+        df_fe['t+1_DayOfWeek'] = df_fe['Date_t+1'].dt.dayofweek
+        df_fe['t+1_Month'] = df_fe['Date_t+1'].dt.month
+        df_fe['t+1_Year'] = df_fe['Date_t+1'].dt.year
+        df_fe['t+1_DayOfYear'] = df_fe['Date_t+1'].dt.dayofyear
+        df_fe['t+1_WeekOfYear'] = df_fe['Date_t+1'].dt.isocalendar().week
+        df_fe['t+1_IsWeekend'] = (df_fe['Date_t+1'].dt.dayofweek >= 5)
+    else:
+        for col_name in date_feature_names: df_fe[col_name] = pd.Series(dtype='int')
+
+    df_fe = df_fe.drop(columns=['Date_t+1'], errors='ignore') 
+    print("Feature engineering complete.")
+    print("Shape after FE and NaN handling:", df_fe.shape)
+    
+    # --- Preprocessing for XGBoost (Categorical Features) ---
+    # Static product attributes
+    static_categorical_features_to_ohe = ['Product ID', 'Category']
+    # Time-varying attributes for t+1
+    time_varying_cat_base = ['Weather Condition', 'Holiday/Promotion', 'Seasonality']
+    time_varying_categorical_features_to_ohe_t_plus_1 = [f'{col}_t+1' for col in time_varying_cat_base if f'{col}_t+1' in df_fe.columns]
+
+    for col in static_categorical_features_to_ohe:
+        if col in df_fe.columns: df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+    for col in time_varying_categorical_features_to_ohe_t_plus_1:
+        if col in df_fe.columns: df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+    
+    all_categorical_to_ohe = [col for col in static_categorical_features_to_ohe if col in df_fe.columns] + \
+                               [col for col in time_varying_categorical_features_to_ohe_t_plus_1 if col in df_fe.columns]
+
+    # --- Define features and target ---
+    numerical_feature_names = [f'UnitsSold_lag_{i}' for i in range(1, 8)] + \
+                              ['UnitsSold_roll_mean_7_lag1', 'UnitsSold_roll_std_7_lag1', 'InventoryLevel_t'] + \
+                              [f'{col}_t+1' for col in ['Demand Forecast', 'Price', 'Discount'] if f'{col}_t+1' in df_fe.columns]
+    
+    # Ensure all feature names actually exist in df_fe at this point
+    features_to_use = [f for f in numerical_feature_names if f in df_fe.columns] + \
+                      date_feature_names + \
+                      all_categorical_to_ohe
+    
+    features_present = [f for f in features_to_use if f in df_fe.columns or f in all_categorical_to_ohe]
+
+
+    if not features_present and not df_fe.empty:
+        print("Error: No features selected or available. Check feature lists.")
+        X, y = pd.DataFrame(), pd.Series(dtype='float64')
+    elif df_fe.empty:
+        print("Warning: DataFrame is empty after FE. No data to train/test.")
+        X, y = pd.DataFrame(), pd.Series(dtype='float64')
+    else:
+        cols_for_X_base = [f for f in numerical_feature_names if f in df_fe.columns] + \
+                          [f for f in date_feature_names if f in df_fe.columns] + \
+                          all_categorical_to_ohe
+        cols_for_X_base = [col for col in cols_for_X_base if col in df_fe.columns] # Final check
+
+        X = df_fe[cols_for_X_base].copy()
+        y = df_fe['target_UnitsSold_t+1'].copy() if 'target_UnitsSold_t+1' in df_fe else pd.Series(dtype='float64')
+        
+        for col in X.select_dtypes(include=np.number).columns:
+            if X[col].isnull().any(): X[col] = X[col].fillna(X[col].median())
+        X = X.fillna(0)
+
+        if all_categorical_to_ohe:
+            ohe_cols_in_X = [col for col in all_categorical_to_ohe if col in X.columns]
+            if ohe_cols_in_X:
+                 X = pd.get_dummies(X, columns=ohe_cols_in_X, dummy_na=False, dtype=int)
+        
+        processed_feature_columns_list = X.columns.tolist()
+
+        if X.empty or y.empty:
+            print("Warning: X or y is empty before train-test split.")
+        else:
+            train_size = int(len(X) * 0.8)
+            if train_size < 1:
+                print(f"Warning: Not enough data for training (train_size={train_size}).")
+            else:
+                X_train, X_test = X.iloc[:train_size], X.iloc[train_size:]
+                y_train, y_test = y.iloc[:train_size], y.iloc[train_size:]
+                dates_train = df_fe.iloc[:train_size]['Date'] if 'Date' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                dates_test = df_fe.iloc[train_size:]['Date'] if 'Date' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                # Store Product IDs for test set for per-product evaluation if needed later
+                product_ids_test = df_fe.iloc[train_size:]['Product ID'] if 'Product ID' in df_fe.columns else pd.Series(dtype='object')
+
+
+                print(f"\nTraining data shape: X_train: {X_train.shape}, y_train: {y_train.shape}")
+                print(f"Testing data shape: X_test: {X_test.shape}, y_test: {y_test.shape}")
+
+                if X_train.empty or y_train.empty:
+                    print("Warning: Training data is empty.")
+                else:
+                    print("\nTraining Global XGBoost model...")
+                    xgb_model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=200, learning_rate=0.05,
+                                                 max_depth=7, subsample=0.8, colsample_bytree=0.8, random_state=42,
+                                                 n_jobs=-1, early_stopping_rounds=10)
+                    
+                    eval_set_size = int(len(X_train) * 0.1)
+                    if eval_set_size < 1 and len(X_train) > 1 : eval_set_size = 1
+                    
+                    if len(X_train) - eval_set_size < 1 or eval_set_size == 0 :
+                        xgb_model.fit(X_train, y_train, verbose=False)
+                    else:
+                        X_train_xgb, X_val_xgb = X_train.iloc[:-eval_set_size], X_train.iloc[-eval_set_size:]
+                        y_train_xgb, y_val_xgb = y_train.iloc[:-eval_set_size], y_train.iloc[-eval_set_size:]
+                        xgb_model.fit(X_train_xgb, y_train_xgb, eval_set=[(X_val_xgb, y_val_xgb)], verbose=False)
+                    print("Global XGBoost model trained.")
+
+                    if not X_test.empty:
+                        y_pred_test_1_day = xgb_model.predict(X_test)
+                        rmse_1_day = np.sqrt(mean_squared_error(y_test, y_pred_test_1_day))
+                        mae_1_day = mean_absolute_error(y_test, y_pred_test_1_day)
+                        r2_1_day = r2_score(y_test, y_pred_test_1_day)
+                        print(f"\nGlobal Model 1-Day Ahead Test Set Evaluation (Store: {TARGET_STORE_ID}):")
+                        print(f"RMSE: {rmse_1_day:.4f}")
+                        print(f"MAE: {mae_1_day:.4f}")
+                        print(f"R² Score: {r2_1_day:.4f}")
+
+                        if not dates_test.empty:
+                            plt.figure(figsize=(15, 6))
+                            # For global model, plotting all products together might be messy.
+                            # Plotting sum of actuals vs sum of predictions for the store.
+                            plot_df_test = pd.DataFrame({'Date_t': dates_test, 
+                                                         'Actual_t+1': y_test, 
+                                                         'Predicted_t+1': y_pred_test_1_day})
+                            plot_df_test['Date_t+1'] = plot_df_test['Date_t'] + pd.Timedelta(days=1)
+                            
+                            agg_actual = plot_df_test.groupby('Date_t+1')['Actual_t+1'].sum()
+                            agg_pred = plot_df_test.groupby('Date_t+1')['Predicted_t+1'].sum()
+
+                            plt.plot(agg_actual.index, agg_actual, label='Total Actual Units Sold (t+1)')
+                            plt.plot(agg_pred.index, agg_pred, label='Total Predicted Units Sold (t+1)', alpha=0.7)
+                            plt.title(f'Global Model: Total 1-Day Ahead Forecast vs Actuals (Store: {TARGET_STORE_ID})')
+                            plt.xlabel('Date (t+1)')
+                            plt.ylabel('Total Units Sold')
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.show()
+                    else:
+                        print("Test set is empty.")
+                    
+                    import pickle
+                    import joblib
+                    import os
+                    
+                    models_dir = './models'
+                    os.makedirs(models_dir, exist_ok=True)
+                    
+                    model_filename = os.path.join(models_dir, f'inventory_xgb_daily_store_{TARGET_STORE_ID}_model.pkl')
+                    with open(model_filename, 'wb') as f:
+                        pickle.dump(xgb_model, f)
+                    
+                    feature_info = {
+                        'processed_feature_columns_list': processed_feature_columns_list,
+                        'static_categorical_features': static_categorical_features_to_ohe,
+                        'time_varying_categorical_features': time_varying_categorical_features_to_ohe_t_plus_1,
+                        'numerical_features': numerical_feature_names,
+                        'date_features': date_feature_names
+                    }
+                    
+                    feature_filename = os.path.join(models_dir, f'inventory_xgb_daily_store_{TARGET_STORE_ID}_features.pkl')
+                    with open(feature_filename, 'wb') as f:
+                        pickle.dump(feature_info, f)
+                    
+                    categorical_info = {
+                        'all_categorical_to_ohe': all_categorical_to_ohe,
+                        'ohe_categorical_values': {col: df_fe[col].unique().tolist() for col in all_categorical_to_ohe if col in df_fe.columns}
+                    }
+                    
+                    encoder_filename = os.path.join(models_dir, f'inventory_xgb_daily_store_{TARGET_STORE_ID}_encoder.pkl')
+                    with open(encoder_filename, 'wb') as f:
+                        pickle.dump(categorical_info, f)
+                    
+                    print(f"Model, features and encoder saved to {models_dir} directory")
+
+
+weekly
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='xgboost')
+
+# Load the dataset
+try:
+    df_full = pd.read_csv("retail_store_inventory.csv")
+except FileNotFoundError:
+    print("Error: retail_store_inventory.csv not found. Please ensure the file is uploaded.")
+    df_full = pd.DataFrame()# --- Initial Data Inspection and Preprocessing ---
+if not df_full.empty:
+    print("Dataset loaded successfully.")
+    print("Original dataset shape:", df_full.shape)
+    df_full['Date'] = pd.to_datetime(df_full['Date'])
+    df_full = df_full.sort_values(by=['Store ID', 'Product ID', 'Date']).reset_index(drop=True)
+    print("\nMissing values before any processing:\n", df_full.isnull().sum())
+
+    # --- Configuration: Select Store ---
+    if df_full['Store ID'].nunique() > 0:
+        # For this example, we use the first store ID encountered.
+        TARGET_STORE_ID = df_full['Store ID'].unique()[0] 
+        print(f"\nFocusing on Store ID: {TARGET_STORE_ID} for the weekly model.")
+        df_store_all_products = df_full[df_full['Store ID'] == TARGET_STORE_ID].copy()
+        if df_store_all_products.empty:
+            print(f"No data found for Store ID: {TARGET_STORE_ID}.")
+    else:
+        TARGET_STORE_ID = None
+        df_store_all_products = pd.DataFrame()
+        print("No Store IDs found in the dataset.")
+else:
+    TARGET_STORE_ID = None
+    df_store_all_products = pd.DataFrame()
+    # --- Weekly Data Aggregation ---
+processed_feature_columns_list = []
+static_categorical_features_to_ohe = []
+time_varying_categorical_features_to_ohe_t_plus_1 = []
+
+if not df_store_all_products.empty:
+    print(f"\nStarting weekly data aggregation for Store {TARGET_STORE_ID}...")
+    
+    df_store_all_products['Year_Week'] = df_store_all_products['Date'].dt.isocalendar().year.astype(str) + "-" + \
+                                         df_store_all_products['Date'].dt.isocalendar().week.astype(str).str.zfill(2)
+    df_store_all_products['WeekStart'] = df_store_all_products['Date'] - pd.to_timedelta(df_store_all_products['Date'].dt.dayofweek, unit='D')
+    
+    print("Starting weekly aggregation...")
+    
+    agg_dict = {
+        'Units Sold': 'sum',
+        'Demand Forecast': 'mean',
+        'Price': 'mean',
+        'Discount': 'mean',
+        'Inventory Level': 'mean',
+        'Weather Condition': lambda x: x.mode()[0] if not x.mode().empty else "Unknown",
+        'Holiday/Promotion': lambda x: 1 if (x==1).any() else 0,
+        'Seasonality': lambda x: x.mode()[0] if not x.mode().empty else "Unknown",
+        'Date': 'max',
+        'WeekStart': 'first'
+    }
+    
+    # Only include columns that actually exist in the dataframe
+    available_cols = [col for col in agg_dict.keys() if col in df_store_all_products.columns]
+    agg_dict = {col: agg_dict[col] for col in available_cols}
+    
+    # Group by store, product, and week to create weekly aggregated data
+    df_weekly = df_store_all_products.groupby(['Store ID', 'Product ID', 'Year_Week']).agg(agg_dict).reset_index()
+    
+    # Ensure we keep category information
+    if 'Category' in df_store_all_products.columns:
+        category_map = df_store_all_products.drop_duplicates(['Product ID'])
+        category_map = category_map[['Product ID', 'Category']]
+        df_weekly = df_weekly.merge(category_map, on='Product ID', how='left')
+    
+    print(f"Weekly data shape: {df_weekly.shape}")
+    
+    # --- Feature Engineering for Weekly Model ---
+    print(f"\nStarting feature engineering for weekly predictions...")
+    df_fe = df_weekly.copy()
+    
+    # Sort by week start to ensure proper time series order
+    df_fe = df_fe.sort_values(by=['Store ID', 'Product ID', 'WeekStart']).reset_index(drop=True)
+    
+    # 1. Target and shifted date for next week target
+    df_fe['target_UnitsSold_next_week'] = df_fe.groupby('Product ID')['Units Sold'].shift(-1)
+    df_fe['WeekStart_next'] = df_fe.groupby('Product ID')['WeekStart'].shift(-1)
+    
+    # 2. Shifted exogenous variables for next week
+    exog_cols_to_shift = ['Demand Forecast', 'Price', 'Discount', 
+                          'Weather Condition', 'Holiday/Promotion', 'Seasonality']
+    
+    for col in exog_cols_to_shift:
+        if col in df_fe.columns:
+            df_fe[f'{col}_next_week'] = df_fe.groupby('Product ID')[col].shift(-1)
+    
+    # 3. Lag features for 'Units Sold' (weekly)
+    for i in range(1, 5):  # 4 weeks of lags (1 month)
+        df_fe[f'UnitsSold_lag_{i}_week'] = df_fe.groupby('Product ID')['Units Sold'].shift(i)
+    
+    # 4. Rolling window statistics for 'Units Sold' (weekly)
+    df_fe['UnitsSold_roll_mean_4_week'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+        lambda x: x.shift(1).rolling(window=4, min_periods=1).mean()
+    )
+    df_fe['UnitsSold_roll_std_4_week'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+        lambda x: x.shift(1).rolling(window=4, min_periods=1).std()
+    )
+    
+    # 5. Inventory level at current week
+    if 'Inventory Level' in df_fe.columns:
+        df_fe['InventoryLevel_current_week'] = df_fe['Inventory Level']
+    else:
+        df_fe['InventoryLevel_current_week'] = np.nan
+    
+    # 6. Clean up based on essential shifts
+    essential_shifted_cols = ['target_UnitsSold_next_week', 'WeekStart_next']
+    for col in exog_cols_to_shift:
+        if f'{col}_next_week' in df_fe.columns:
+            essential_shifted_cols.append(f'{col}_next_week')
+    
+    valid_dropna_subset = [col for col in essential_shifted_cols if col in df_fe.columns]
+    if valid_dropna_subset:
+        df_fe = df_fe.dropna(subset=valid_dropna_subset)
+    
+    # 7. Date features for next week
+    date_feature_names = ['next_week_Month', 'next_week_Year', 'next_week_WeekOfYear', 'next_week_Quarter']
+    
+    if not df_fe.empty and 'WeekStart_next' in df_fe.columns:
+        df_fe['next_week_Month'] = df_fe['WeekStart_next'].dt.month
+        df_fe['next_week_Year'] = df_fe['WeekStart_next'].dt.year
+        df_fe['next_week_WeekOfYear'] = df_fe['WeekStart_next'].dt.isocalendar().week
+        df_fe['next_week_Quarter'] = df_fe['WeekStart_next'].dt.quarter
+    else:
+        for col_name in date_feature_names:
+            df_fe[col_name] = pd.Series(dtype='int')
+    
+    df_fe = df_fe.drop(columns=['WeekStart_next'], errors='ignore')
+    print("Feature engineering complete.")
+    print("Shape after FE and NaN handling:", df_fe.shape)
+    
+    # --- Preprocessing for XGBoost (Categorical Features) ---
+    # Static product attributes
+    static_categorical_features_to_ohe = ['Product ID', 'Category']
+    
+    # Time-varying attributes for next week
+    time_varying_cat_base = ['Weather Condition', 'Holiday/Promotion', 'Seasonality']
+    time_varying_categorical_features_to_ohe_next_week = [f'{col}_next_week' for col in time_varying_cat_base 
+                                                        if f'{col}_next_week' in df_fe.columns]
+    
+    for col in static_categorical_features_to_ohe:
+        if col in df_fe.columns: 
+            df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+    
+    for col in time_varying_categorical_features_to_ohe_next_week:
+        if col in df_fe.columns: 
+            df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+    
+    all_categorical_to_ohe = [col for col in static_categorical_features_to_ohe if col in df_fe.columns] + \
+                             [col for col in time_varying_categorical_features_to_ohe_next_week if col in df_fe.columns]
+    
+    # --- Define features and target ---
+    numerical_feature_names = [f'UnitsSold_lag_{i}_week' for i in range(1, 5)] + \
+                             ['UnitsSold_roll_mean_4_week', 'UnitsSold_roll_std_4_week', 'InventoryLevel_current_week'] + \
+                             [f'{col}_next_week' for col in ['Demand Forecast', 'Price', 'Discount'] 
+                              if f'{col}_next_week' in df_fe.columns]
+    
+    # Ensure all feature names actually exist in df_fe
+    features_to_use = [f for f in numerical_feature_names if f in df_fe.columns] + \
+                     date_feature_names + \
+                     all_categorical_to_ohe
+    
+    features_present = [f for f in features_to_use if f in df_fe.columns or f in all_categorical_to_ohe]
+    
+    if not features_present and not df_fe.empty:
+        print("Error: No features selected or available. Check feature lists.")
+        X, y = pd.DataFrame(), pd.Series(dtype='float64')
+    elif df_fe.empty:
+        print("Warning: DataFrame is empty after FE. No data to train/test.")
+        X, y = pd.DataFrame(), pd.Series(dtype='float64')
+    else:
+        cols_for_X_base = [f for f in numerical_feature_names if f in df_fe.columns] + \
+                         [f for f in date_feature_names if f in df_fe.columns] + \
+                         all_categorical_to_ohe
+        
+        cols_for_X_base = [col for col in cols_for_X_base if col in df_fe.columns]  # Final check
+        
+        X_base = df_fe[cols_for_X_base].copy()
+        y = df_fe['target_UnitsSold_next_week'].copy() if 'target_UnitsSold_next_week' in df_fe else pd.Series(dtype='float64')
+        
+        # Fill missing values in numerical columns
+        for col in X_base.select_dtypes(include=np.number).columns:
+            if X_base[col].isnull().any(): 
+                X_base[col] = X_base[col].fillna(X_base[col].median())
+        
+        # Fill remaining NAs with zeros
+        X_base = X_base.fillna(0)
+        
+        # Import sklearn for OneHotEncoder
+        from sklearn.preprocessing import OneHotEncoder
+        import numpy as np
+        
+        # Initialize processed feature names list
+        processed_feature_names = []
+        
+        # Separate categorical and numerical features
+        X_cat_cols = [col for col in all_categorical_to_ohe if col in X_base.columns]
+        X_num_cols = [col for col in X_base.columns if col not in X_cat_cols]
+        
+        # Extract numerical features (no transformation needed)
+        X_num = X_base[X_num_cols].copy()
+        processed_feature_names.extend(X_num_cols)
+        
+        # Initialize the final feature matrix with numerical features
+        X = X_num.copy()
+        
+        # Process categorical features with OneHotEncoder if there are any
+        encoder = None
+        if X_cat_cols:
+            print(f"\nOne-hot encoding {len(X_cat_cols)} categorical features using sklearn.preprocessing.OneHotEncoder")
+            X_cat = X_base[X_cat_cols].copy()
+            
+            # Initialize and fit the encoder
+            encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', dtype=np.int32)
+            encoder.fit(X_cat)
+            
+            # Transform categorical data
+            X_cat_encoded = encoder.transform(X_cat)
+            
+            # Get feature names from the encoder and add to processed feature names
+            cat_feature_names = encoder.get_feature_names_out(X_cat_cols)
+            processed_feature_names.extend(cat_feature_names)
+            
+            # Convert to DataFrame with proper column names
+            X_cat_df = pd.DataFrame(X_cat_encoded, columns=cat_feature_names, index=X.index)
+            
+            # Join categorical and numerical features
+            X = pd.concat([X, X_cat_df], axis=1)
+            
+            print(f"Encoded {len(X_cat_cols)} categorical features into {len(cat_feature_names)} binary features")
+        
+        # Store the final processed feature columns list
+        processed_feature_columns_list = processed_feature_names
+        
+        if X.empty or y.empty:
+            print("Warning: X or y is empty before train-test split.")
+        else:
+            train_size = int(len(X) * 0.8)
+            if train_size < 1:
+                print(f"Warning: Not enough data for training (train_size={train_size}).")
+            else:
+                X_train, X_test = X.iloc[:train_size], X.iloc[train_size:]
+                y_train, y_test = y.iloc[:train_size], y.iloc[train_size:]
+                
+                # Keep track of weeks for plotting
+                weekstarts_train = df_fe.iloc[:train_size]['WeekStart'] if 'WeekStart' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                weekstarts_test = df_fe.iloc[train_size:]['WeekStart'] if 'WeekStart' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                
+                # Store Product IDs for test set for per-product evaluation
+                product_ids_test = df_fe.iloc[train_size:]['Product ID'] if 'Product ID' in df_fe.columns else pd.Series(dtype='object')
+                
+                print(f"\nTraining data shape: X_train: {X_train.shape}, y_train: {y_train.shape}")
+                print(f"Testing data shape: X_test: {X_test.shape}, y_test: {y_test.shape}")
+                
+                if X_train.empty or y_train.empty:
+                    print("Warning: Training data is empty.")
+                else:
+                    print("\nTraining Weekly XGBoost model...")
+                    xgb_weekly_model = xgb.XGBRegressor(
+                        objective='reg:squarederror', 
+                        n_estimators=200, 
+                        learning_rate=0.05,
+                        max_depth=7, 
+                        subsample=0.8, 
+                        colsample_bytree=0.8, 
+                        random_state=42,
+                        n_jobs=-1, 
+                        early_stopping_rounds=10
+                    )
+                    
+                    eval_set_size = int(len(X_train) * 0.1)
+                    if eval_set_size < 1 and len(X_train) > 1: eval_set_size = 1
+                    
+                    if len(X_train) - eval_set_size < 1 or eval_set_size == 0:
+                        xgb_weekly_model.fit(X_train, y_train, verbose=False)
+                    else:
+                        X_train_xgb, X_val_xgb = X_train.iloc[:-eval_set_size], X_train.iloc[-eval_set_size:]
+                        y_train_xgb, y_val_xgb = y_train.iloc[:-eval_set_size], y_train.iloc[-eval_set_size:]
+                        xgb_weekly_model.fit(
+                            X_train_xgb, 
+                            y_train_xgb, 
+                            eval_set=[(X_val_xgb, y_val_xgb)], 
+                            verbose=False
+                        )
+                    print("Weekly XGBoost model trained.")
+
+                    if not X_test.empty:
+                        y_pred_test_weekly = xgb_weekly_model.predict(X_test)
+                        rmse_weekly = np.sqrt(mean_squared_error(y_test, y_pred_test_weekly))
+                        mae_weekly = mean_absolute_error(y_test, y_pred_test_weekly)
+                        r2_weekly = r2_score(y_test, y_pred_test_weekly)
+                        
+                        print(f"\nWeekly Model Test Set Evaluation (Store: {TARGET_STORE_ID}):")
+                        print(f"RMSE: {rmse_weekly:.4f}")
+                        print(f"MAE: {mae_weekly:.4f}")
+                        print(f"R² Score: {r2_weekly:.4f}")
+                        
+                        if not weekstarts_test.empty:
+                            plt.figure(figsize=(15, 6))
+                            
+                            # Plotting aggregated store-level predictions for visualization
+                            plot_df_test = pd.DataFrame({
+                                'WeekStart': weekstarts_test,
+                                'Actual_next_week': y_test,
+                                'Predicted_next_week': y_pred_test_weekly,
+                                'Product_ID': product_ids_test
+                            })
+                            
+                            # Group by week start and sum actual vs predicted
+                            agg_actual = plot_df_test.groupby('WeekStart')['Actual_next_week'].sum()
+                            agg_pred = plot_df_test.groupby('WeekStart')['Predicted_next_week'].sum()
+                            
+                            plt.plot(agg_actual.index, agg_actual, label='Total Actual Weekly Units Sold')
+                            plt.plot(agg_pred.index, agg_pred, label='Total Predicted Weekly Units Sold', alpha=0.7)
+                            plt.title(f'Weekly Model: Total Weekly Forecast vs Actuals (Store: {TARGET_STORE_ID})')
+                            plt.xlabel('Week Starting')
+                            plt.ylabel('Total Units Sold')
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.show()
+                            
+                            # Per-product analysis for a few sample products
+                            unique_products = product_ids_test.unique()
+                            sample_size = min(4, len(unique_products))
+                            sample_products = unique_products[:sample_size]
+                            
+                            if sample_size > 0:
+                                plt.figure(figsize=(15, 10))
+                                for i, prod_id in enumerate(sample_products, 1):
+                                    plt.subplot(2, 2, i)
+                                    
+                                    prod_mask = (product_ids_test == prod_id)
+                                    prod_actual = y_test[prod_mask]
+                                    prod_pred = y_pred_test_weekly[prod_mask]
+                                    prod_weeks = weekstarts_test[prod_mask]
+                                    
+                                    plt.plot(prod_weeks, prod_actual, label=f'Actual Sales')
+                                    plt.plot(prod_weeks, prod_pred, label=f'Predicted Sales', linestyle='--')
+                                    plt.title(f'Product ID: {prod_id}')
+                                    plt.ylabel('Weekly Units Sold')
+                                    plt.legend()
+                                
+                                plt.tight_layout()
+                                plt.show()
+                                
+                                # Calculate product-specific performance metrics
+                                print("\nProduct-specific performance metrics:")
+                                for prod_id in sample_products:
+                                    prod_mask = (product_ids_test == prod_id)
+                                    prod_actual = y_test[prod_mask]
+                                    prod_pred = y_pred_test_weekly[prod_mask]
+                                    
+                                    if len(prod_actual) > 0:
+                                        prod_rmse = np.sqrt(mean_squared_error(prod_actual, prod_pred))
+                                        prod_mae = mean_absolute_error(prod_actual, prod_pred)
+                                        prod_r2 = r2_score(prod_actual, prod_pred) if len(prod_actual) > 1 else float('nan')
+                                        
+                                        print(f"Product ID {prod_id} - RMSE: {prod_rmse:.4f}, MAE: {prod_mae:.4f}, R²: {prod_r2:.4f}")
+                    else:
+                        print("Test set is empty.")
+                        
+                    # Save model components
+                    import pickle
+                    import os
+                    
+                    # Create models directory if it doesn't exist
+                    models_dir = './models'
+                    os.makedirs(models_dir, exist_ok=True)
+                    
+                    # 1. Save the XGBoost model
+                    model_filename = os.path.join(models_dir, f'inventory_xgb_weekly_store_{TARGET_STORE_ID}_model.pkl')
+                    with open(model_filename, 'wb') as f:
+                        pickle.dump(xgb_weekly_model, f)
+                    
+                    # 2. Save the OneHotEncoder if it exists
+                    if encoder is not None:
+                        encoder_filename = os.path.join(models_dir, f'inventory_xgb_weekly_store_{TARGET_STORE_ID}_encoder.pkl')
+                        with open(encoder_filename, 'wb') as f:
+                            pickle.dump(encoder, f)
+                    
+                    # 3. Save feature information
+                    feature_info = {
+                        'processed_feature_columns_list': processed_feature_columns_list,
+                        'static_categorical_features': static_categorical_features_to_ohe,
+                        'time_varying_categorical_features': time_varying_categorical_features_to_ohe_next_week,
+                        'numerical_features': numerical_feature_names,
+                        'date_features': date_feature_names,
+                        'categorical_columns': X_cat_cols if 'X_cat_cols' in locals() else []
+                    }
+                    
+                    feature_filename = os.path.join(models_dir, f'inventory_xgb_weekly_store_{TARGET_STORE_ID}_features.pkl')
+                    with open(feature_filename, 'wb') as f:
+                        pickle.dump(feature_info, f)
+                    
+                    print(f"\nWeekly model, encoder and features saved to {models_dir} directory")
+
+elif df_full.empty:
+    print("\nScript execution halted: Dataset not loaded.")
+elif 'df_store_all_products' in locals() and df_store_all_products.empty:
+    print("\nScript execution halted: No data for the selected Store.")
+elif not processed_feature_columns_list:
+    print("\nScript execution halted: Feature processing failed or no features available.")
+else:
+    print("\nModel training was not performed or other prerequisites missing.")
+
+print("\n--- End of Weekly Model Script ---")
+
+monthly
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='xgboost')
+# Load the dataset
+try:
+    df_full = pd.read_csv("retail_store_inventory.csv")
+except FileNotFoundError:
+    print("Error: retail_store_inventory.csv not found. Please ensure the file is uploaded.")
+    df_full = pd.DataFrame()
+
+
+    # --- Initial Data Inspection and Preprocessing ---
+if not df_full.empty:
+    print("Dataset loaded successfully.")
+    print("Original dataset shape:", df_full.shape)
+    df_full['Date'] = pd.to_datetime(df_full['Date'])
+    df_full = df_full.sort_values(by=['Store ID', 'Product ID', 'Date']).reset_index(drop=True)
+    print("\nMissing values before any processing:\n", df_full.isnull().sum())
+
+    # --- Configuration: Select Store ---
+    if df_full['Store ID'].nunique() > 0:
+        # For this example, we use the first store ID encountered.
+        TARGET_STORE_ID = df_full['Store ID'].unique()[0] 
+        print(f"\nFocusing on Store ID: {TARGET_STORE_ID} for the monthly model.")
+        df_store_all_products = df_full[df_full['Store ID'] == TARGET_STORE_ID].copy()
+        if df_store_all_products.empty:
+            print(f"No data found for Store ID: {TARGET_STORE_ID}.")
+    else:
+        TARGET_STORE_ID = None
+        df_store_all_products = pd.DataFrame()
+        print("No Store IDs found in the dataset.")
+else:
+    TARGET_STORE_ID = None
+    df_store_all_products = pd.DataFrame()
+
+    # --- Monthly Data Aggregation ---
+processed_feature_columns_list = []
+static_categorical_features_to_ohe = []
+time_varying_categorical_features_to_ohe_next_month = []
+
+if not df_store_all_products.empty:
+    print(f"\nStarting monthly data aggregation for Store {TARGET_STORE_ID}...")
+    
+    # Add month information to the dataframe - FIX: Ensure proper date column handling
+    df_store_all_products['Year_Month'] = df_store_all_products['Date'].dt.strftime('%Y-%m')
+    
+    # Create explicit MonthStart column (first day of month) and MonthEnd column (last day of month)
+    df_store_all_products['MonthStart'] = pd.to_datetime(df_store_all_products['Date'].dt.strftime('%Y-%m-01'))
+    df_store_all_products['MonthEnd'] = (df_store_all_products['MonthStart'] + pd.offsets.MonthEnd(0))
+    
+    print("Starting monthly aggregation...")
+
+    agg_dict = {
+        'Units Sold': 'sum',
+        'Demand Forecast': 'mean',
+        'Price': 'mean',
+        'Discount': 'mean',
+        'Inventory Level': 'mean',
+        'Weather Condition': lambda x: x.mode()[0] if not x.mode().empty else "Unknown",
+        'Holiday/Promotion': lambda x: 1 if (x==1).any() else 0,
+        'Seasonality': lambda x: x.mode()[0] if not x.mode().empty else "Unknown",
+        'Date': 'max',
+        'MonthStart': 'first',
+        'MonthEnd': 'first'
+    }
+    
+    available_cols = [col for col in agg_dict.keys() if col in df_store_all_products.columns]
+    agg_dict = {col: agg_dict[col] for col in available_cols}
+    
+    df_monthly = df_store_all_products.groupby(['Store ID', 'Product ID', 'Year_Month']).agg(agg_dict)
+    
+    df_monthly = df_monthly.reset_index()
+    
+    print("\nVerifying columns after aggregation:")
+    print(df_monthly.columns.tolist())
+    
+    if isinstance(df_monthly.columns, pd.MultiIndex):
+        print("Flattening multi-level columns...")
+        # Create a flat column index
+        df_monthly.columns = [
+            col[0] if col[1] == '' else f"{col[0]}_{col[1]}" 
+            for col in df_monthly.columns
+        ]
+        print("After flattening:", df_monthly.columns.tolist())
+    
+    if 'MonthStart' not in df_monthly.columns and 'MonthStart_first' in df_monthly.columns:
+        df_monthly['MonthStart'] = df_monthly['MonthStart_first']
+        
+    if 'MonthEnd' not in df_monthly.columns and 'MonthEnd_first' in df_monthly.columns:
+        df_monthly['MonthEnd'] = df_monthly['MonthEnd_first']
+    
+    if 'Category' in df_store_all_products.columns:
+        category_map = df_store_all_products.drop_duplicates(['Product ID'])
+        category_map = category_map[['Product ID', 'Category']]
+        df_monthly = df_monthly.merge(category_map, on='Product ID', how='left')
+    
+    # Final verification of required columns
+    print("\nMonthly data shape:", df_monthly.shape)
+    print("Final column list:", df_monthly.columns.tolist())
+    
+    # --- Feature Engineering for Monthly Model ---
+    print(f"\nStarting feature engineering for monthly predictions...")
+    df_fe = df_monthly.copy()
+    
+    if 'MonthStart' not in df_fe.columns:
+        print("ERROR: MonthStart column still missing. Cannot proceed.")
+    else:
+        df_fe['MonthStart'] = pd.to_datetime(df_fe['MonthStart'])
+        
+        # Sort by month start to ensure proper time series order
+        df_fe = df_fe.sort_values(by=['Store ID', 'Product ID', 'MonthStart']).reset_index(drop=True)
+        
+        # 1. Target and shifted date for next month target
+        df_fe['target_UnitsSold_next_month'] = df_fe.groupby('Product ID')['Units Sold'].shift(-1)
+        df_fe['MonthStart_next'] = df_fe.groupby('Product ID')['MonthStart'].shift(-1)
+        df_fe['MonthEnd_next'] = df_fe.groupby('Product ID')['MonthEnd'].shift(-1)
+        
+        # 2. Shifted exogenous variables for next month
+        exog_cols_to_shift = ['Demand Forecast', 'Price', 'Discount', 
+                             'Weather Condition', 'Holiday/Promotion', 'Seasonality']
+        
+        available_exog = [col for col in exog_cols_to_shift if col in df_fe.columns]
+        
+        for col in available_exog:
+            df_fe[f'{col}_next_month'] = df_fe.groupby('Product ID')[col].shift(-1)
+        
+        # 3. Lag features for 'Units Sold' (monthly)
+        for i in range(1, 13):  # 12 months of lags (full year)
+            df_fe[f'UnitsSold_lag_{i}_month'] = df_fe.groupby('Product ID')['Units Sold'].shift(i)
+        
+        # 4. Seasonal lag features (same month in previous year)
+        df_fe['UnitsSold_same_month_last_year'] = df_fe.groupby('Product ID')['Units Sold'].shift(12)
+        
+        # 5. Rolling window statistics for 'Units Sold' (monthly)
+        # Short-term trends (3 months)
+        df_fe['UnitsSold_roll_mean_3_month'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+            lambda x: x.shift(1).rolling(window=3, min_periods=1).mean()
+        )
+        df_fe['UnitsSold_roll_std_3_month'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+            lambda x: x.shift(1).rolling(window=3, min_periods=1).std()
+        )
+        
+        # Medium-term trends (6 months)
+        df_fe['UnitsSold_roll_mean_6_month'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+            lambda x: x.shift(1).rolling(window=6, min_periods=1).mean()
+        )
+        df_fe['UnitsSold_roll_max_6_month'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+            lambda x: x.shift(1).rolling(window=6, min_periods=1).max()
+        )
+        
+        # Long-term trends (12 months)
+        df_fe['UnitsSold_roll_mean_12_month'] = df_fe.groupby('Product ID')['Units Sold'].transform(
+            lambda x: x.shift(1).rolling(window=12, min_periods=1).mean()
+        )
+        
+        # 6. Month-over-month changes
+        df_fe['UnitsSold_mom_change'] = df_fe.groupby('Product ID')['Units Sold'].pct_change()
+        df_fe['UnitsSold_mom_change_lag1'] = df_fe.groupby('Product ID')['UnitsSold_mom_change'].shift(1)
+        
+        # 7. Quarter-over-quarter changes
+        df_fe['UnitsSold_qoq_change'] = df_fe.groupby('Product ID')['Units Sold'].pct_change(3)
+        
+        # 8. Inventory level features
+        if 'Inventory Level' in df_fe.columns:
+            df_fe['Inventory_Level_current'] = df_fe['Inventory Level']
+            df_fe['Inventory_to_Sales_Ratio'] = df_fe['Inventory Level'] / df_fe['Units Sold'].replace(0, 1)
+        
+        # 9. Clean up based on essential shifts
+        essential_shifted_cols = ['target_UnitsSold_next_month', 'MonthStart_next']
+        for col in available_exog:
+            if f'{col}_next_month' in df_fe.columns:
+                essential_shifted_cols.append(f'{col}_next_month')
+        
+        valid_dropna_subset = [col for col in essential_shifted_cols if col in df_fe.columns]
+        if valid_dropna_subset:
+            df_fe = df_fe.dropna(subset=valid_dropna_subset)
+        
+        # 10. Date features for next month
+        date_feature_names = ['next_month_Month', 'next_month_Year', 'next_month_Quarter', 'next_month_IsHighSeason']
+        
+        if not df_fe.empty and 'MonthStart_next' in df_fe.columns:
+            df_fe['next_month_Month'] = df_fe['MonthStart_next'].dt.month
+            df_fe['next_month_Year'] = df_fe['MonthStart_next'].dt.year
+            df_fe['next_month_Quarter'] = df_fe['MonthStart_next'].dt.quarter
+            
+            # Define high seasons (e.g., holiday months or peak seasons)
+            high_season_months = [11, 12, 1, 7]  # November, December, January, July
+            df_fe['next_month_IsHighSeason'] = df_fe['MonthStart_next'].dt.month.isin(high_season_months).astype(int)
+        else:
+            for col_name in date_feature_names:
+                df_fe[col_name] = pd.Series(dtype='int')
+        
+        # Drop intermediate date columns
+        df_fe = df_fe.drop(columns=['MonthStart_next', 'MonthEnd_next'], errors='ignore')
+        
+        print("Feature engineering complete.")
+        print("Shape after FE and NaN handling:", df_fe.shape)
+        
+        # --- Preprocessing for XGBoost (Categorical Features) ---
+        # Static product attributes
+        static_categorical_features_to_ohe = ['Product ID', 'Category']
+        
+        # Time-varying attributes for next month
+        time_varying_cat_base = ['Weather Condition', 'Holiday/Promotion', 'Seasonality']
+        time_varying_categorical_features_to_ohe_next_month = [f'{col}_next_month' for col in time_varying_cat_base 
+                                                              if f'{col}_next_month' in df_fe.columns]
+        
+        for col in static_categorical_features_to_ohe:
+            if col in df_fe.columns: 
+                df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+        
+        for col in time_varying_categorical_features_to_ohe_next_month:
+            if col in df_fe.columns: 
+                df_fe[col] = df_fe[col].astype(str).fillna('Missing')
+        
+        all_categorical_to_ohe = [col for col in static_categorical_features_to_ohe if col in df_fe.columns] + \
+                                 [col for col in time_varying_categorical_features_to_ohe_next_month if col in df_fe.columns]
+        
+        # --- Define features and target ---
+        monthly_lag_features = [f'UnitsSold_lag_{i}_month' for i in range(1, 13)]
+        seasonal_lag_features = ['UnitsSold_same_month_last_year']
+        rolling_stat_features = [
+            'UnitsSold_roll_mean_3_month', 'UnitsSold_roll_std_3_month',
+            'UnitsSold_roll_mean_6_month', 'UnitsSold_roll_max_6_month',
+            'UnitsSold_roll_mean_12_month'
+        ]
+        change_features = ['UnitsSold_mom_change', 'UnitsSold_mom_change_lag1', 'UnitsSold_qoq_change']
+        inventory_features = [col for col in [
+            'Inventory_Level_current', 'Inventory_to_Sales_Ratio'
+        ] if col in df_fe.columns]
+        
+        exog_features = [f'{col}_next_month' for col in ['Demand Forecast', 'Price', 'Discount']
+                        if f'{col}_next_month' in df_fe.columns]
+        
+        all_numerical_features = (monthly_lag_features + seasonal_lag_features + rolling_stat_features + 
+                                 change_features + inventory_features + exog_features)
+        
+        # Ensure all feature names actually exist in df_fe
+        features_to_use = [f for f in all_numerical_features if f in df_fe.columns] + \
+                         date_feature_names + \
+                         all_categorical_to_ohe
+        
+        features_present = [f for f in features_to_use if f in df_fe.columns or f in all_categorical_to_ohe]
+        
+        if not features_present and not df_fe.empty:
+            print("Error: No features selected or available. Check feature lists.")
+            X, y = pd.DataFrame(), pd.Series(dtype='float64')
+        elif df_fe.empty:
+            print("Warning: DataFrame is empty after FE. No data to train/test.")
+            X, y = pd.DataFrame(), pd.Series(dtype='float64')
+        else:
+            cols_for_X_base = [f for f in all_numerical_features if f in df_fe.columns] + \
+                             [f for f in date_feature_names if f in df_fe.columns] + \
+                             all_categorical_to_ohe
+            
+            cols_for_X_base = [col for col in cols_for_X_base if col in df_fe.columns]  # Final check
+            
+            X_base = df_fe[cols_for_X_base].copy()
+            y = df_fe['target_UnitsSold_next_month'].copy() if 'target_UnitsSold_next_month' in df_fe else pd.Series(dtype='float64')
+            
+            # Import sklearn for OneHotEncoder
+            from sklearn.preprocessing import OneHotEncoder
+            import numpy as np
+            
+            # Initialize processed feature names list
+            processed_feature_names = []
+            
+            # Separate categorical and numerical features
+            X_cat_cols = [col for col in all_categorical_to_ohe if col in X_base.columns]
+            X_num_cols = [col for col in X_base.columns if col not in X_cat_cols]
+            
+            # Handle missing values in numerical features
+            X_num = X_base[X_num_cols].copy()
+            for col in X_num.columns:
+                if X_num[col].isnull().any(): 
+                    X_num[col] = X_num[col].fillna(X_num[col].median())
+            
+            processed_feature_names.extend(X_num_cols)
+            
+            # Initialize the final feature matrix with numerical features
+            X = X_num.copy()
+            
+            # Process categorical features with OneHotEncoder if there are any
+            encoder = None
+            if X_cat_cols:
+                print(f"\nOne-hot encoding {len(X_cat_cols)} categorical features using sklearn.preprocessing.OneHotEncoder")
+                X_cat = X_base[X_cat_cols].copy()
+                
+                # Ensure categorical features are strings and fill missing values
+                for col in X_cat_cols:
+                    X_cat[col] = X_cat[col].astype(str).fillna('Missing')
+                
+                # Initialize and fit the encoder
+                encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', dtype=np.int32)
+                encoder.fit(X_cat)
+                
+                # Transform categorical data
+                X_cat_encoded = encoder.transform(X_cat)
+                
+                # Get feature names from the encoder and add to processed feature names
+                cat_feature_names = encoder.get_feature_names_out(X_cat_cols)
+                processed_feature_names.extend(cat_feature_names)
+                
+                # Convert to DataFrame with proper column names
+                X_cat_df = pd.DataFrame(X_cat_encoded, columns=cat_feature_names, index=X.index)
+                
+                # Join categorical and numerical features
+                X = pd.concat([X, X_cat_df], axis=1)
+                
+                print(f"Encoded {len(X_cat_cols)} categorical features into {len(cat_feature_names)} binary features")
+            
+            # Fill any remaining missing values with zeros
+            X = X.fillna(0)
+            
+            # Store the final processed feature columns list
+            processed_feature_columns_list = processed_feature_names
+            
+            if X.empty or y.empty:
+                print("Warning: X or y is empty before train-test split.")
+            else:
+                train_size = int(len(X) * 0.8)
+                if train_size < 1:
+                    print(f"Warning: Not enough data for training (train_size={train_size}).")
+                else:
+                    X_train, X_test = X.iloc[:train_size], X.iloc[train_size:]
+                    y_train, y_test = y.iloc[:train_size], y.iloc[train_size:]
+                    
+                    # Keep track of months for plotting
+                    monthstarts_train = df_fe.iloc[:train_size]['MonthStart'] if 'MonthStart' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                    monthstarts_test = df_fe.iloc[train_size:]['MonthStart'] if 'MonthStart' in df_fe.columns else pd.Series(dtype='datetime64[ns]')
+                    
+                    # Store Product IDs for test set for per-product evaluation
+                    product_ids_test = df_fe.iloc[train_size:]['Product ID'] if 'Product ID' in df_fe.columns else pd.Series(dtype='object')
+                    
+                    print(f"\nTraining data shape: X_train: {X_train.shape}, y_train: {y_train.shape}")
+                    print(f"Testing data shape: X_test: {X_test.shape}, y_test: {y_test.shape}")
+                    
+                    if X_train.empty or y_train.empty:
+                        print("Warning: Training data is empty.")
+                    else:
+                        print("\nTraining Monthly XGBoost model...")
+                        
+                        # Hyperparameter tuning for monthly model
+                        xgb_monthly_model = xgb.XGBRegressor(
+                            objective='reg:squarederror', 
+                            n_estimators=300,
+                            learning_rate=0.03,
+                            max_depth=8,
+                            subsample=0.8, 
+                            colsample_bytree=0.8, 
+                            gamma=0.1,
+                            min_child_weight=3,
+                            reg_alpha=0.1,
+                            reg_lambda=1.0,
+                            random_state=42,
+                            n_jobs=-1, 
+                            early_stopping_rounds=15
+                        )
+                        
+                        eval_set_size = int(len(X_train) * 0.2)  # Larger validation set for monthly data
+                        if eval_set_size < 1 and len(X_train) > 1: eval_set_size = 1
+                        
+                        if len(X_train) - eval_set_size < 1 or eval_set_size == 0:
+                            xgb_monthly_model.fit(X_train, y_train, verbose=False)
+                        else:
+                            X_train_xgb, X_val_xgb = X_train.iloc[:-eval_set_size], X_train.iloc[-eval_set_size:]
+                            y_train_xgb, y_val_xgb = y_train.iloc[:-eval_set_size], y_train.iloc[-eval_set_size:]
+                            xgb_monthly_model.fit(
+                                X_train_xgb, 
+                                y_train_xgb, 
+                                eval_set=[(X_val_xgb, y_val_xgb)], 
+                                verbose=False
+                            )
+                        print("Monthly XGBoost model trained.")
+                        
+                        
+                        if not X_test.empty:
+                            y_pred_test_monthly = xgb_monthly_model.predict(X_test)
+                            rmse_monthly = np.sqrt(mean_squared_error(y_test, y_pred_test_monthly))
+                            mae_monthly = mean_absolute_error(y_test, y_pred_test_monthly)
+                            r2_monthly = r2_score(y_test, y_pred_test_monthly)
+                            
+                            print(f"\nMonthly Model Test Set Evaluation (Store: {TARGET_STORE_ID}):")
+                            print(f"RMSE: {rmse_monthly:.4f}")
+                            print(f"MAE: {mae_monthly:.4f}")
+                            print(f"R² Score: {r2_monthly:.4f}")
+                            print(f"Mean Absolute Percentage Error (MAPE): {np.mean(np.abs((y_test - y_pred_test_monthly) / y_test.replace(0, 1))) * 100:.2f}%")
+                            
+                            if not monthstarts_test.empty:
+                                # Create a DataFrame for plotting
+                                plot_df_test = pd.DataFrame({
+                                    'MonthStart': monthstarts_test,
+                                    'Product_ID': product_ids_test,
+                                    'Actual_next_month': y_test,
+                                    'Predicted_next_month': y_pred_test_monthly
+                                })
+                                
+                                # Overall store performance by month
+                                plt.figure(figsize=(15, 6))
+                                agg_actual = plot_df_test.groupby('MonthStart')['Actual_next_month'].sum()
+                                agg_pred = plot_df_test.groupby('MonthStart')['Predicted_next_month'].sum()
+                                
+                                plt.plot(agg_actual.index, agg_actual, label='Total Actual Monthly Units Sold', marker='o')
+                                plt.plot(agg_pred.index, agg_pred, label='Total Predicted Monthly Units Sold', 
+                                        marker='x', linestyle='--', alpha=0.8)
+                                plt.title(f'Monthly Model: Total Monthly Forecast vs Actuals (Store: {TARGET_STORE_ID})')
+                                plt.xlabel('Month')
+                                plt.ylabel('Total Units Sold')
+                                plt.grid(True, alpha=0.3)
+                                plt.legend()
+                                plt.tight_layout()
+                                plt.show()
+                                
+                                # Analyze performance by product
+                                unique_products = product_ids_test.unique()
+                                sample_size = min(4, len(unique_products))
+                                
+                                if sample_size > 0:
+                                    sample_products = unique_products[:sample_size]
+                                    
+                                    # Create subplots for each product's performance and lags
+                                    for product_id in sample_products:
+                                        # Filter data for this product
+                                        product_data = df_fe[df_fe['Product ID'] == product_id]
+                                        
+                                        # Get test data for this product
+                                        test_data_mask = (product_ids_test == product_id)
+                                        test_months = monthstarts_test[test_data_mask]
+                                        test_actuals = y_test[test_data_mask]
+                                        test_preds = y_pred_test_monthly[test_data_mask]
+                                        
+                                        if len(test_months) > 0:
+                                            fig, axes = plt.subplots(1, 1, figsize=(15, 12))
+                                            
+                                            # Plot 1: Actual vs Predicted Values
+                                            axes.plot(test_months, test_actuals, 
+                                                       label='Actual Sales', marker='o')
+                                            axes.plot(test_months, test_preds, 
+                                                       label='Predicted Sales', marker='x', 
+                                                       linestyle='--', alpha=0.8)
+                                            axes.set_title(f'Product {product_id} - Monthly Sales Forecast vs Actuals')
+                                            axes.set_xlabel('Month')
+                                            axes.set_ylabel('Units Sold')
+                                            axes.grid(True, alpha=0.3)
+                                            axes.legend()
+                                            
+                                            plt.tight_layout()
+                                            plt.show()
+                                            
+                                            # Print product-specific metrics
+                                            prod_rmse = np.sqrt(mean_squared_error(test_actuals, test_preds))
+                                            prod_r2 = r2_score(test_actuals, test_preds) if len(test_actuals) > 1 else float('nan')
+                                            prod_mape = np.mean(np.abs((test_actuals - test_preds) / test_actuals.replace(0, 1))) * 100
+                                            
+                                            print(f"\nProduct {product_id} Metrics:")
+                                            print(f"RMSE: {prod_rmse:.4f}")
+                                            print(f"R²: {prod_r2:.4f}")
+                                            print(f"MAPE: {prod_mape:.2f}%")
+                                        
+                        else:
+                            print("Test set is empty.")
+                        
+                        # Save model components
+                        import pickle
+                        import os
+                        
+                        # Create models directory if it doesn't exist
+                        models_dir = './models'
+                        os.makedirs(models_dir, exist_ok=True)
+                        
+                        # 1. Save the XGBoost model
+                        model_filename = os.path.join(models_dir, f'inventory_xgb_monthly_store_{TARGET_STORE_ID}_model.pkl')
+                        with open(model_filename, 'wb') as f:
+                            pickle.dump(xgb_monthly_model, f)
+                        
+                        # 2. Save the OneHotEncoder if it exists
+                        if encoder is not None:
+                            encoder_filename = os.path.join(models_dir, f'inventory_xgb_monthly_store_{TARGET_STORE_ID}_encoder.pkl')
+                            with open(encoder_filename, 'wb') as f:
+                                pickle.dump(encoder, f)
+                        
+                        # 3. Save feature information
+                        feature_info = {
+                            'processed_feature_columns_list': processed_feature_columns_list,
+                            'static_categorical_features': static_categorical_features_to_ohe,
+                            'time_varying_categorical_features': time_varying_categorical_features_to_ohe_next_month,
+                            'numerical_features': all_numerical_features,
+                            'date_features': date_feature_names,
+                            'categorical_columns': X_cat_cols if 'X_cat_cols' in locals() else []
+                        }
+                        
+                        feature_filename = os.path.join(models_dir, f'inventory_xgb_monthly_store_{TARGET_STORE_ID}_features.pkl')
+                        with open(feature_filename, 'wb') as f:
+                            pickle.dump(feature_info, f)
+                        
+                        print(f"\nMonthly model, encoder and features saved to {models_dir} directory")
+
+elif df_full.empty:
+    print("\nScript execution halted: Dataset not loaded.")
+elif 'df_store_all_products' in locals() and df_store_all_products.empty:
+    print("\nScript execution halted: No data for the selected Store.")
+elif not processed_feature_columns_list:
+    print("\nScript execution halted: Feature processing failed or no features available.")
+else:
+    print("\nModel training was not performed or other prerequisites missing.")
+
+print("\n--- End of Monthly Model Script ---")
