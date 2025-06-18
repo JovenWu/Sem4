@@ -386,7 +386,7 @@ const PurchaseOrder = () => {
                       {fields.map((field, index) => (
                         <Card key={field.id} className="overflow-hidden">
                           <CardContent className="p-4">
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="flex justify-between items-center">
                               <h4 className="font-medium">
                                 Product {index + 1}
                               </h4>
@@ -646,7 +646,9 @@ const PurchaseOrder = () => {
                       )}
                     />
                     <SheetFooter>
-                      <Button type="submit">Create Purchase Order</Button>
+                      <Button type="submit" className="w-full">
+                        Create Purchase Order
+                      </Button>
                     </SheetFooter>
                   </form>
                 </Form>

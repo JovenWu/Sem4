@@ -5,6 +5,8 @@ import Inventory from "./pages/Inventory";
 import "./index.css";
 import PurchaseOrder from "./pages/PurchaseOrder";
 import SalesOrder from "./pages/SalesOrder";
+import Account from "./pages/Account";
+import Profile from "./pages/Profile";
 
 function App() {
   return (

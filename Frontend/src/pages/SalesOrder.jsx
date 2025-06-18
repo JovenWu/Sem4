@@ -395,7 +395,17 @@ const SalesOrder = () => {
                       control={form.control}
                       name="productName"
                       render={({ field }) => {
+                        // Add local state for the search input
                         const [popoverOpen, setPopoverOpen] = useState(false);
+                        const [productSearchInput, setProductSearchInput] =
+                          useState("");
+
+                        // Reset search input when popover opens or product changes
+                        useEffect(() => {
+                          if (popoverOpen) {
+                            setProductSearchInput("");
+                          }
+                        }, [popoverOpen, field.value]);
 
                         return (
                           <FormItem className="flex flex-col">
@@ -438,11 +448,10 @@ const SalesOrder = () => {
                                     <input
                                       className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
                                       placeholder="Search for a product..."
-                                      value={field.input || ""}
-                                      onChange={(e) => {
-                                        field.input = e.target.value;
-                                        form.setValue("_dummy", Math.random());
-                                      }}
+                                      value={productSearchInput}
+                                      onChange={(e) =>
+                                        setProductSearchInput(e.target.value)
+                                      }
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   </div>
@@ -457,13 +466,11 @@ const SalesOrder = () => {
                                       {productList
                                         .filter(
                                           (product) =>
-                                            !field.input ||
+                                            !productSearchInput ||
                                             product.name
                                               .toLowerCase()
                                               .includes(
-                                                (
-                                                  field.input || ""
-                                                ).toLowerCase()
+                                                productSearchInput.toLowerCase()
                                               )
                                         )
                                         .map((product) => (
@@ -492,11 +499,11 @@ const SalesOrder = () => {
                                         ))}
                                       {productList.filter(
                                         (product) =>
-                                          !field.input ||
+                                          !productSearchInput ||
                                           product.name
                                             .toLowerCase()
                                             .includes(
-                                              (field.input || "").toLowerCase()
+                                              productSearchInput.toLowerCase()
                                             )
                                       ).length === 0 && (
                                         <div className="p-2 text-sm text-center text-muted-foreground">
@@ -593,7 +600,9 @@ const SalesOrder = () => {
                     </div>
 
                     <SheetFooter>
-                      <Button type="submit">Create Sales Order</Button>
+                      <Button type="submit" className="w-full">
+                        Create Sales Order
+                      </Button>
                     </SheetFooter>
                   </form>
                 </Form>

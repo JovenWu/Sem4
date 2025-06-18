@@ -1,18 +1,31 @@
+import React from "react";
 import Account from "./Account";
 import { Title, NavItems } from "./NavItems";
 import { Link, useLocation } from "react-router-dom";
 import { GrCubes } from "react-icons/gr";
 import { LuLayoutDashboard, LuShoppingCart } from "react-icons/lu";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
+import { GoGear, GoChevronRight } from "react-icons/go";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import { PiUserFocus, PiWrench } from "react-icons/pi";
+import {  } from "react-icons/pi";
 import { Separator } from "./ui/separator";
+import { useState } from "react";
 
 const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
+  const [isToggleOpen, setIsToggleOpen] = useState({
+    settings: false,
+  });
   const location = useLocation();
 
   const isActive = (path) => {
@@ -56,6 +69,45 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
     }
 
     return navItem;
+  };
+
+  const renderToggleItem = (
+    title,
+    icon,
+    isToggleOpen,
+    onOpenChange,
+    children
+  ) => {
+    return (
+      <Collapsible open={isToggleOpen} onOpenChange={onOpenChange}>
+        <CollapsibleTrigger asChild>
+          <div className="items-center ju">
+            <NavItems
+              title={title}
+              icon={React.cloneElement(icon, {
+                className: `transition-transform duration-200 ${
+                  isToggleOpen ? "rotate-90" : "rotate-0"
+                }`,
+              })}
+              showTitle={!collapsed}
+              active={false}
+            />
+
+            {!collapsed && (
+              <GoChevronRight
+                className={`transition-transform duration-200 ${
+                  isToggleOpen ? "rotate-90" : "rotate-0"
+                }`}
+              />
+            )}
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="ml-4">{children}</div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
   };
 
   return (
@@ -111,6 +163,33 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             isActive("/sales")
           )}
 
+          {!collapsed && <Title title="Others" />}
+
+          {renderToggleItem(
+            "Settings",
+            <GoGear size={iconSize} />,
+            isToggleOpen.settings,
+            (open) => {
+              setIsToggleOpen((prev) => ({
+                ...prev,
+                settings: open,
+              }));
+            },
+            <>
+              {renderNavItem(
+                "/profile",
+                "Profile",
+                <PiUserFocus size={iconSize} />,
+                isActive("/profile")
+              )}
+              {renderNavItem(
+                "/account",
+                "Account",
+                <PiWrench size={iconSize} />,
+                isActive("/account")
+              )}
+            </>
+          )}
           {/* 
           {renderNavItem(
             "/settings",
