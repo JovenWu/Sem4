@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Account from "./Account";
 import { Title, NavItems } from "./NavItems";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { GrCubes } from "react-icons/gr";
 import { LuLayoutDashboard, LuShoppingCart } from "react-icons/lu";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
@@ -24,13 +24,78 @@ import {
 } from "@/components/ui/popover";
 import { PiUserFocus, PiWrench } from "react-icons/pi";
 import { Separator } from "./ui/separator";
-import { useState } from "react";
+import { FaSignOutAlt } from "react-icons/fa";
 
 const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
   const [isToggleOpen, setIsToggleOpen] = useState({
     settings: false,
   });
   const location = useLocation();
+  const navigate = useNavigate();
+  const [user, setUser] = useState({ name: "", role: "" });
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        let token = localStorage.getItem("access");
+        const refresh = localStorage.getItem("refresh");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+        let res = await fetch("http://localhost:8000/api/user-info/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // If access token expired, try to refresh
+        if (res.status === 401 && refresh) {
+          const refreshRes = await fetch(
+            "http://localhost:8000/api/token/refresh/",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refresh }),
+            }
+          );
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            localStorage.setItem("access", data.access);
+            token = data.access;
+            // Retry user info fetch with new access token
+            res = await fetch("http://localhost:8000/api/user-info/", {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+          } else {
+            // Refresh failed, log out
+            localStorage.removeItem("access");
+            localStorage.removeItem("refresh");
+            navigate("/login");
+            return;
+          }
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          setUser({
+            name: data.username,
+            role: data.groups,
+          });
+        } else if (res.status === 401) {
+          // Still unauthorized after refresh
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+          navigate("/login");
+        }
+      } catch (err) {
+        navigate("/login");
+      }
+    };
+    fetchUser();
+  }, [navigate]);
 
   const isActive = (path) => {
     if (path === "/app") {
@@ -167,7 +232,7 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
   return (
     <div
       className={`bg-white p-2 h-[98vh] overflow-y-auto shadow-lg transition-all duration-300 ease-in-out border-1 overflow-hidden ${
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-60"
       } ${isMobile ? "rounded-none h-full border-0" : "rounded-lg  m-2"}`}
     >
       <div className={`px-1.5 ${collapsed ? "items-center" : ""}`}>
@@ -244,21 +309,82 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               )}
             </>
           )}
-          {/* 
-          {renderNavItem(
-            "/settings",
-            "Settings",
-            faGear,
-            isActive("/settings")
-          )}
-
-          {renderNavItem(
-            "/help",
-            "Help Center",
-            faQuestionCircle,
-            isActive("/help")
-          )} */}
         </div>
+      </div>
+      <div
+        className={`absolute bottom-4 left-0 ${
+          collapsed
+            ? "flex justify-center items-center w-full"
+            : "ml-2 px-2 w-60"
+        }`}
+      >
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className={`flex items-center rounded-lg transition-colors duration-200 hover:bg-gray-100 cursor-pointer ${
+                collapsed ? "justify-center w-10 h-10 p-0" : "w-full px-3 py-2"
+              }`}
+            >
+              <div className="flex items-center w-full">
+                <div className="flex items-center justify-center w-10">
+                  <div className="bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-gray-700">
+                    {user.name ? user.name[0].toUpperCase() : ""}
+                  </div>
+                </div>
+                <div
+                  className={`flex flex-col items-start transition-all duration-200 ${
+                    collapsed
+                      ? "opacity-0 translate-x-[-12px] w-0 ml-0"
+                      : "opacity-100 translate-x-0 w-36 ml-3"
+                  }`}
+                  style={{ overflow: "hidden" }}
+                >
+                  {!collapsed && (
+                    <>
+                      <span className="font-semibold text-sm">{user.name}</span>
+                      <span className="text-xs text-gray-500">{user.role}</span>
+                    </>
+                  )}
+                </div>
+                {!collapsed && (
+                  <GoChevronRight className="ml-auto text-gray-400" />
+                )}
+              </div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="right" className="w-64 p-0 -translate-y-4">
+            <div className="p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="bg-slate-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700">
+                  {user.name ? user.name[0].toUpperCase() : ""}
+                </div>
+                <div>
+                  <div className="font-semibold">{user.name}</div>
+                  <div className="text-xs text-gray-500">{user.role}</div>
+                </div>
+              </div>
+            </div>
+            <div className="py-2">
+              <button
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                onClick={() => navigate("/app/account")}
+              >
+                <PiWrench size={18} /> Account
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                onClick={() => {
+                  // Add your logout logic here
+                  localStorage.removeItem("access");
+                  localStorage.removeItem("refresh");
+                  navigate("/login");
+                }}
+              >
+                <FaSignOutAlt size={16} /> Log out
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

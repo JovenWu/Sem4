@@ -12,18 +12,23 @@ from .ml_models import get_product_sales_prediction
 from .ml_models.data_preparation import generate_training_data, get_current_product_data
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
 import django_filters
 from django.db.models import Sum, Count, Avg, F
 from django.db.models.functions import TruncMonth, Extract
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import datetime, timedelta, date
+from django.contrib.auth.models import User, Group
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .permissions import IsOwner
+from rest_framework.permissions import IsAuthenticated
 import hashlib
 import hashlib
 import calendar
 
-# Custom Pagination Classes
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
@@ -42,13 +47,10 @@ class StandardResultsSetPagination(PageNumberPagination):
             'results': data
         })
 
-# Custom Filter Backend to disable HTML rendering
 class DjangoFilterBackendNoHTML(DjangoFilterBackend):
     def to_html(self, request, queryset, view):
-        # Return empty string to disable HTML form rendering
         return ""
 
-# Custom Filter Classes
 class ProductFilter(django_filters.FilterSet):
     product_name = django_filters.CharFilter(lookup_expr='icontains')
     name = django_filters.CharFilter(field_name='product_name', lookup_expr='icontains')  # Alias for backward compatibility
@@ -405,128 +407,6 @@ class SalesRecordsViewSet(viewsets.ModelViewSet):
             output_serializer = self.get_serializer(sales_record)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
-@api_view(['POST'])
-def generate_ml_training_data(request):
-    """
-    Generate training data CSV for ML model
-    
-    Parameters:
-    - start_date (optional): Start date in YYYY-MM-DD format
-    - end_date (optional): End date in YYYY-MM-DD format
-    - filename (optional): Custom filename for the CSV
-    """
-    try:
-        start_date = request.data.get('start_date', None)
-        end_date = request.data.get('end_date', None)
-        filename = request.data.get('filename', 'processed.csv')
-        
-        csv_path = generate_training_data(start_date, end_date, filename)
-        
-        return Response({
-            'success': True,
-            'message': 'Training data generated successfully',
-            'csv_path': csv_path
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-def get_product_data_preview(request):
-    """
-    Get a preview of current product data for ML model
-    
-    Parameters:
-    - product_ids (optional): Comma-separated list of product IDs
-    """
-    try:
-        product_ids_param = request.query_params.get('product_ids', None)
-        product_ids = None
-        
-        if product_ids_param:
-            product_ids = [pid.strip() for pid in product_ids_param.split(',')]
-        
-        df = get_current_product_data(product_ids)
-        
-        return Response({
-            'success': True,
-            'data': df.to_dict(orient='records'),
-            'shape': df.shape,
-            'columns': list(df.columns)
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-def test_ml_models(request):
-    """
-    Test the prediction models for all three time horizons
-    
-    Parameters:
-    - product_id: Product ID to test predictions
-    - model_type (optional): 'daily', 'weekly', or 'monthly', defaults to testing all
-    """
-    try:
-        product_id = request.query_params.get('product_id')
-        model_type = request.query_params.get('model_type', None)
-        
-        if not product_id:
-            return Response({
-                'success': False,
-                'error': 'Product ID is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        models_to_test = ['daily', 'weekly', 'monthly']
-        if model_type and model_type.lower() in models_to_test:
-            models_to_test = [model_type.lower()]
-        
-        results = {}
-        
-        for horizon in models_to_test:
-            # Set default periods based on model type
-            default_periods = {
-                'daily': 7,
-                'weekly': 4, 
-                'monthly': 3
-            }
-            periods = default_periods.get(horizon)
-            
-            try:
-                forecast_results = get_product_sales_prediction(
-                    product_ids=[product_id],
-                    time_horizon=horizon,
-                    periods=periods
-                )
-                
-                results[horizon] = {
-                    'success': True,
-                    'periods': periods,
-                    'forecasts': forecast_results
-                }
-            except Exception as e:
-                results[horizon] = {
-                    'success': False,
-                    'error': str(e)
-                }
-        
-        return Response({
-            'success': True,
-            'results': results
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 @api_view(['GET'])
 def dashboard_summary(request):
     """
@@ -705,3 +585,99 @@ def dashboard_summary(request):
             {'error': f'Failed to fetch dashboard summary: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+class CreateUserView(APIView):
+    permission_classes = [IsOwner]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        role = request.data.get('role')
+        if not all([username, password, role]):
+            return Response({'error': 'Missing fields'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.create_user(username=username, password=password)
+        try:
+            group = Group.objects.get(name=role)
+        except Group.DoesNotExist:
+            return Response({'error': 'Role does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+        user.groups.add(group)
+        return Response({'success': f'User {username} created with role {role}'}, status=status.HTTP_201_CREATED)
+    
+class UserInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "username": user.username,
+            "groups": [g.name for g in user.groups.all()],
+        })
+
+class EmployeeListView(APIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def get(self, request):
+        users = User.objects.exclude(username=request.user.username)
+
+        # --- Search ---
+        search = request.query_params.get("search")
+        if search:
+            users = users.filter(username__icontains=search)
+
+        # --- Ordering ---
+        ordering = request.query_params.get("ordering")
+        if ordering:
+            if ordering.startswith("-"):
+                users = users.order_by(ordering)
+            else:
+                users = users.order_by(ordering)
+
+        # --- Pagination ---
+        paginator = LimitOffsetPagination()
+        paginator.default_limit = 10
+        paginated_users = paginator.paginate_queryset(users, request)
+
+        employees = []
+        for user in paginated_users:
+            groups = [g.name for g in user.groups.all()]
+            employees.append({
+                "id": user.id,
+                "username": user.username,
+                "role": groups[0] if groups else "",
+            })
+
+        return paginator.get_paginated_response(employees)
+
+class EmployeeDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def put(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        username = request.data.get("username")
+        role = request.data.get("role")
+        if username:
+            user.username = username
+        if role:
+            user.groups.clear()
+            try:
+                group = Group.objects.get(name=role)
+                user.groups.add(group)
+            except Group.DoesNotExist:
+                return Response({"error": "Role does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        if "password" in request.data and request.data["password"]:
+            user.set_password(request.data["password"])
+        user.save()
+        return Response({"success": "User updated"})
+
+    def delete(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        user.delete()
+        return Response({"success": "User deleted"})

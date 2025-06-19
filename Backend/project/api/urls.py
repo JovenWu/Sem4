@@ -10,8 +10,9 @@ router.register(r'sales-records', SalesRecordsViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('generate-ml-data/', generate_ml_training_data, name='generate-ml-data'),
-    path('product-data-preview/', get_product_data_preview, name='product-data-preview'),
-    path('test-ml-models/', test_ml_models, name='test-ml-models'),
     path('dashboard-summary/', dashboard_summary, name='dashboard-summary'),
+    path('create-user/', CreateUserView.as_view(), name='create-user'),
+    path('user-info/', UserInfoView.as_view(), name='user-info'),
+    path('employees/', EmployeeListView.as_view(), name='employee-list'),
+    path('employees/<int:pk>/', EmployeeDetailView.as_view(), name='employee-detail'),
 ]

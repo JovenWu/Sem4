@@ -5,9 +5,10 @@ import Inventory from "./pages/Inventory";
 import "./index.css";
 import PurchaseOrder from "./pages/PurchaseOrder";
 import SalesOrder from "./pages/SalesOrder";
-import Account from "./pages/Account";
+import Employees from "./pages/Employees";
 import Profile from "./pages/Profile";
 import LandingPage from "./pages/LandingPage";
+import LoginForm from "./pages/LoginForm";
 
 function App() {
   return (
@@ -17,10 +18,11 @@ function App() {
         <Route path="inventory" element={<Inventory />} />
         <Route path="purchase" element={<PurchaseOrder />} />
         <Route path="sales" element={<SalesOrder />} />
-        <Route path="account" element={<Account />} />
+        <Route path="employees" element={<Employees />} />
         <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginForm />} />
     </Routes>
   );
 }

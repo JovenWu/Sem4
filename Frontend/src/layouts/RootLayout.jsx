@@ -42,7 +42,7 @@ const RootLayout = () => {
     if (isMobile) {
       return "";
     }
-    return isSidebarCollapsed ? "ml-[4rem]" : "ml-[16rem]";
+    return isSidebarCollapsed ? "ml-[4rem]" : "ml-[15rem]";
   };
 
   return (
@@ -66,12 +66,11 @@ const RootLayout = () => {
           isMobile={isMobile}
           onCloseMobile={() => setIsSidebarOpen(false)}
         />
-      </div>{" "}
-      {/* Main Content - with appropriate margin */}
-      <div className={`transition-all duration-300 ${getContentMarginClass()}`}>
+      </div>
+      <div className={`transition-all duration-400 ${getContentMarginClass()}`}>
         <Outlet context={{ toggleSidebar, isMobile, setRunTour }} />
       </div>
-      <Toaster />
+      <Toaster className="!z-[9999]" />
       <AppTour runTour={runTour} setRunTour={setRunTour} />
     </div>
   );

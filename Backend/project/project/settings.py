@@ -27,9 +27,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 
-
-# Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -48,7 +45,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'api.middleware.DisableCSRFForAPIMiddleware',  # Add this before CSRF middleware
+    'api.middleware.DisableCSRFForAPIMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -133,25 +130,18 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 
-
-
-
-
-
-
-
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -159,24 +149,20 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS settings - Add these at the bottom of settings.py
 
-# Allow all origins during development (change for production)
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Or specify specific origins for production
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React default port
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Vite default port
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:8080",  # Vue default port  
+    "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "http://localhost:4200",  # Angular default port
+    "http://localhost:4200",
     "http://127.0.0.1:4200",
 ]
 
-# Allow specific headers
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -189,7 +175,6 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# Allow specific methods
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -199,10 +184,8 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Allow credentials (cookies, authorization headers)
 CORS_ALLOW_CREDENTIALS = True
 
-# Disable CSRF for API endpoints (add this setting)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000", 
@@ -214,11 +197,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:4200",
 ]
 
-# Preflight request max age
 CORS_PREFLIGHT_MAX_AGE = 86400
 
-# Additional CSRF settings for API
-CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
@@ -231,16 +212,3 @@ CSRF_COOKIE_NAME = 'csrftoken'
 CSRF_EXEMPT_URLS = [
     r'^/api/',
 ]
-
-# Add REST Framework settings
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-    ],
-}

@@ -258,7 +258,6 @@ const PurchaseOrder = () => {
         description: `Purchase order for ${data.supplier_name} has been created.`,
       });
 
-      // Refresh purchase orders after successful submission
       fetchPurchaseOrders();
 
       setOpen(false);
