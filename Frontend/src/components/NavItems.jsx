@@ -11,11 +11,13 @@ export const NavItems = ({
         active ? "bg-slate-100 text-black" : "hover:bg-gray-100 "
       }`}
     >
-      <span className={active ? "text-black-500" : "text-gray-500"}>
-        {icon}
-      </span>
+      <span className={"text-black font-medium"}>{icon}</span>
       {showTitle && (
-        <span className="ml-3 whitespace-nowrap overflow-hidden text-ellipsis block w-48">
+        <span
+          className={`ml-3 text-sm whitespace-nowrap overflow-hidden text-ellipsis block w-48 ${
+            active ? "font-medium" : "font-normal"
+          }`}
+        >
           {title}
         </span>
       )}
@@ -26,7 +28,7 @@ export const NavItems = ({
 
 export const Title = ({ title }) => {
   return (
-    <div className="text-xs uppercase font-bold text-gray-400 tracking-widest mt-4 mb-2">
+    <div className="text-xs font-medium outline-hidden mt-4 mb-2 text-gray-500">
       {title}
     </div>
   );

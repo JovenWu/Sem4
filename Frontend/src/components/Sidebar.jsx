@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Account from "./Account";
+import Welcome from "./Welcome";
 import { Title, NavItems } from "./NavItems";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { GrCubes } from "react-icons/gr";
@@ -49,7 +49,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
           },
         });
 
-        // If access token expired, try to refresh
         if (res.status === 401 && refresh) {
           const refreshRes = await fetch(
             "http://localhost:8000/api/token/refresh/",
@@ -63,14 +62,12 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             const data = await refreshRes.json();
             localStorage.setItem("access", data.access);
             token = data.access;
-            // Retry user info fetch with new access token
             res = await fetch("http://localhost:8000/api/user-info/", {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
             });
           } else {
-            // Refresh failed, log out
             localStorage.removeItem("access");
             localStorage.removeItem("refresh");
             navigate("/login");
@@ -85,7 +82,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             role: data.groups,
           });
         } else if (res.status === 401) {
-          // Still unauthorized after refresh
           localStorage.removeItem("access");
           localStorage.removeItem("refresh");
           navigate("/login");
@@ -112,7 +108,7 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
 
   const collapsed = isCollapsed && !isMobile;
 
-  const iconSize = "20";
+  const iconSize = "16";
 
   const renderNavItem = (to, title, icon, active) => {
     const navItem = (
@@ -229,162 +225,238 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
     );
   };
 
+  // Helper for section titles
+  const SectionTitle = ({ title }) =>
+    !collapsed ? <Title title={title} /> : <div className="my-4"></div>;
+
+  // Helper for section divider
+  const SectionDivider = () => (
+    <Separator orientation="horizontal" className="my-2" />
+  );
+
   return (
     <div
-      className={`bg-white p-2 h-[98vh] overflow-y-auto shadow-lg transition-all duration-300 ease-in-out border-1 overflow-hidden ${
+      className={`bg-white p-2 h-[98vh] shadow-lg transition-all duration-300 ease-in-out border-1 overflow-hidden ${
         collapsed ? "w-16" : "w-60"
       } ${isMobile ? "rounded-none h-full border-0" : "rounded-lg  m-2"}`}
     >
-      <div className={`px-1.5 ${collapsed ? "items-center" : ""}`}>
-        {!collapsed && <Account />}
-        {collapsed && (
-          <div className="flex justify-center">
-            <img
-              src="https://api.dicebear.com/9.x/notionists/svg"
-              alt="avatar"
-              className="size-8 rounded-md shrink-0 bg-violet-500 shadow "
-            />
-          </div>
-        )}
-
-        <Separator
-          orientation="horizontal"
-          className={`${collapsed ? "mt-4" : "mt-2.5"}`}
-        />
-        <div className="space-y-1">
-          {!collapsed && <Title title="General" />}
-          {collapsed && <div className="my-4"></div>}
-
-          {renderNavItem(
-            "/app",
-            "Dashboard",
-            <LuLayoutDashboard size={iconSize} />,
-            isActive("/app")
-          )}
-
-          {renderNavItem(
-            "/app/inventory",
-            "Inventory Forecasting",
-            <GrCubes size={iconSize} />,
-            isActive("/app/inventory")
-          )}
-
-          {renderNavItem(
-            "/app/purchase",
-            "Purchase Order",
-            <LuShoppingCart size={iconSize} />,
-            isActive("/app/purchase")
-          )}
-          {renderNavItem(
-            "/app/sales",
-            "Sales",
-            <RiMoneyDollarCircleLine size={iconSize} />,
-            isActive("/app/sales")
-          )}
-
-          {!collapsed && <Title title="Others" />}
-
-          {renderToggleItem(
-            "Settings",
-            <GoGear size={iconSize} />,
-            isToggleOpen.settings,
-            (open) => {
-              setIsToggleOpen((prev) => ({
-                ...prev,
-                settings: open,
-              }));
-            },
-            <>
-              {renderNavItem(
-                "/app/profile",
-                "Profile",
-                <PiUserFocus size={iconSize} />,
-                isActive("/app/profile")
-              )}
-              {renderNavItem(
-                "/app/account",
-                "Account",
-                <PiWrench size={iconSize} />,
-                isActive("/app/account")
-              )}
-            </>
+      <div className="flex flex-col h-full relative">
+        <div
+          className="w-full"
+          style={{
+            position: "sticky",
+            top: 0,
+            background: "white",
+            zIndex: 20,
+            paddingTop: "0.5rem",
+            paddingBottom: "0.5rem",
+          }}
+        >
+          {!collapsed && <Welcome />}
+          {collapsed && (
+            <div className="flex justify-center">
+              <img
+                src="https://api.dicebear.com/9.x/notionists/svg"
+                alt="avatar"
+                className="size-8 rounded-md shrink-0 bg-violet-500 shadow "
+              />
+            </div>
           )}
         </div>
-      </div>
-      <div
-        className={`absolute bottom-4 left-0 ${
-          collapsed
-            ? "flex justify-center items-center w-full"
-            : "ml-2 px-2 w-60"
-        }`}
-      >
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              className={`flex items-center rounded-lg transition-colors duration-200 hover:bg-gray-100 cursor-pointer ${
-                collapsed ? "justify-center w-10 h-10 p-0" : "w-full px-3 py-2"
-              }`}
-            >
-              <div className="flex items-center w-full">
-                <div className="flex items-center justify-center w-10">
-                  <div className="bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-gray-700">
-                    {user.name ? user.name[0].toUpperCase() : ""}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <div className={`px-1.5 ${collapsed ? "items-center" : ""}`}>
+            <SectionDivider />
+
+            {/* No Category */}
+            <SectionTitle title="" />
+            {renderNavItem(
+              "/app",
+              "Dashboard",
+              <LuLayoutDashboard size={iconSize} />,
+              isActive("/app")
+            )}
+
+            {/* Sales */}
+            <SectionTitle title="Sales" />
+            {renderNavItem(
+              "/app/sales",
+              "Sales",
+              <RiMoneyDollarCircleLine size={iconSize} />,
+              isActive("/app/sales")
+            )}
+            {renderNavItem(
+              "/app/customers",
+              "Customers",
+              <PiUserFocus size={iconSize} />,
+              isActive("/app/customers")
+            )}
+
+            {/* Procurement */}
+            <SectionTitle title="Procurement" />
+            {renderNavItem(
+              "/app/purchase",
+              "Purchase Orders",
+              <LuShoppingCart size={iconSize} />,
+              isActive("/app/purchase")
+            )}
+            {renderNavItem(
+              "/app/suppliers",
+              "Suppliers",
+              <GrCubes size={iconSize} />,
+              isActive("/app/suppliers")
+            )}
+
+            {/* Inventory */}
+            <SectionTitle title="Inventory" />
+            {renderNavItem(
+              "/app/products",
+              "Products",
+              <GrCubes size={iconSize} />,
+              isActive("/app/products")
+            )}
+            {renderNavItem(
+              "/app/stock-levels",
+              "Stock Levels",
+              <GrCubes size={iconSize} />,
+              isActive("/app/stock-levels")
+            )}
+
+            {/* Analytics */}
+            <SectionTitle title="Analytics" />
+            {renderNavItem(
+              "/app/inventory",
+              "Forecasting",
+              <GrCubes size={iconSize} />,
+              isActive("/app/inventory")
+            )}
+            {renderNavItem(
+              "/app/reports",
+              "Reports",
+              <GoGear size={iconSize} />,
+              isActive("/app/reports")
+            )}
+
+            {/* Bottom Section */}
+            <SectionTitle title="Settings" />
+            {renderToggleItem(
+              "Settings",
+              <GoGear size={iconSize} />,
+              isToggleOpen.settings,
+              (open) => {
+                setIsToggleOpen((prev) => ({
+                  ...prev,
+                  settings: open,
+                }));
+              },
+              <>
+                {renderNavItem(
+                  "/app/profile",
+                  "Profile",
+                  <PiUserFocus size={iconSize} />,
+                  isActive("/app/profile")
+                )}
+                {renderNavItem(
+                  "/app/employees",
+                  "Account",
+                  <PiWrench size={iconSize} />,
+                  isActive("/app/employees")
+                )}
+                {renderNavItem(
+                  "/help",
+                  "Help Center",
+                  <GoGear size={iconSize} />,
+                  isActive("/help")
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <div
+          className={`w-full ${
+            collapsed ? "flex justify-center items-center" : "px-2"
+          }`}
+          style={{
+            position: "sticky",
+            bottom: 0,
+            background: "white",
+            zIndex: 10,
+            paddingTop: "0.5rem",
+            paddingBottom: "0.5rem",
+          }}
+        >
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={`flex items-center rounded-lg transition-colors duration-200 hover:bg-gray-100 cursor-pointer ${
+                  collapsed
+                    ? "justify-center w-10 h-10 p-0"
+                    : "w-full px-3 py-2"
+                }`}
+              >
+                <div className="flex items-center w-full">
+                  <div className="flex items-center justify-center w-10">
+                    <div className="bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-gray-700">
+                      {user.name ? user.name[0].toUpperCase() : ""}
+                    </div>
                   </div>
-                </div>
-                <div
-                  className={`flex flex-col items-start transition-all duration-200 ${
-                    collapsed
-                      ? "opacity-0 translate-x-[-12px] w-0 ml-0"
-                      : "opacity-100 translate-x-0 w-36 ml-3"
-                  }`}
-                  style={{ overflow: "hidden" }}
-                >
+                  <div
+                    className={`flex flex-col items-start transition-all duration-200 ${
+                      collapsed
+                        ? "opacity-0 translate-x-[-12px] w-0 ml-0"
+                        : "opacity-100 translate-x-0 w-36 ml-3"
+                    }`}
+                    style={{ overflow: "hidden" }}
+                  >
+                    {!collapsed && (
+                      <>
+                        <span className="font-semibold text-sm">
+                          {user.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {user.role}
+                        </span>
+                      </>
+                    )}
+                  </div>
                   {!collapsed && (
-                    <>
-                      <span className="font-semibold text-sm">{user.name}</span>
-                      <span className="text-xs text-gray-500">{user.role}</span>
-                    </>
+                    <GoChevronRight className="ml-auto text-gray-400" />
                   )}
                 </div>
-                {!collapsed && (
-                  <GoChevronRight className="ml-auto text-gray-400" />
-                )}
-              </div>
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="right" className="w-64 p-0 -translate-y-4">
-            <div className="p-4 border-b">
-              <div className="flex items-center gap-3">
-                <div className="bg-slate-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700">
-                  {user.name ? user.name[0].toUpperCase() : ""}
-                </div>
-                <div>
-                  <div className="font-semibold">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="right" className="w-64 p-0 -translate-y-4">
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="bg-slate-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700">
+                    {user.name ? user.name[0].toUpperCase() : ""}
+                  </div>
+                  <div>
+                    <div className="font-semibold">{user.name}</div>
+                    <div className="text-xs text-gray-500">{user.role}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="py-2">
-              <button
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
-                onClick={() => navigate("/app/account")}
-              >
-                <PiWrench size={18} /> Account
-              </button>
-              <button
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
-                onClick={() => {
-                  // Add your logout logic here
-                  localStorage.removeItem("access");
-                  localStorage.removeItem("refresh");
-                  navigate("/login");
-                }}
-              >
-                <FaSignOutAlt size={16} /> Log out
-              </button>
-            </div>
-          </PopoverContent>
-        </Popover>
+              <div className="py-2">
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  onClick={() => navigate("/app/employees")}
+                >
+                  <PiWrench size={18} /> Account
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  onClick={() => {
+                    localStorage.removeItem("access");
+                    localStorage.removeItem("refresh");
+                    navigate("/login");
+                  }}
+                >
+                  <FaSignOutAlt size={16} /> Log out
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import React from "react";
 
-const Account = () => {
+const Welcome = () => {
   return (
     <div className="">
-      <button className="flex p-0.5 hover:bg-stone-200 rounded transition-colors relative gap-2 w-full items-center">
+      <button className="flex p-0.5 rounded transition-colors relative gap-2 w-full items-center">
         <img
           src="https://api.dicebear.com/9.x/notionists/svg"
           alt="avatar"
@@ -18,4 +18,4 @@ const Account = () => {
   );
 };
 
-export default Account;
+export default Welcome;

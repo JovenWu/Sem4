@@ -11,7 +11,11 @@ const roleColor = {
 };
 
 const RoleCell = ({ value }) => (
-  <Badge className={roleColor[value] || "bg-gray-100 text-gray-700 border border-gray-200"}>
+  <Badge
+    className={
+      roleColor[value] || "bg-gray-100 text-gray-700 border border-gray-200"
+    }
+  >
     {value}
   </Badge>
 );
@@ -44,7 +48,10 @@ export const EmployeeColumns = ({ onRowClick, refetch }) => [
           variant="destructive"
           onClick={async (e) => {
             e.stopPropagation();
-            if (!window.confirm("Are you sure you want to delete this employee?")) return;
+            if (
+              !window.confirm("Are you sure you want to delete this employee?")
+            )
+              return;
             const token = localStorage.getItem("access");
             try {
               const res = await fetch(

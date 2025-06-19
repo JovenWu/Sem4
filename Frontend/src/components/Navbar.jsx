@@ -31,7 +31,8 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
   }, [scrolled]);
 
   const pathSegments = location.pathname
-    .split("/app/")
+    .replace(/^\/app\/?/, "") // Remove leading /app or /app/
+    .split("/")
     .filter((segment) => segment);
 
   return (
