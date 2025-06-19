@@ -31,7 +31,7 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
   }, [scrolled]);
 
   const pathSegments = location.pathname
-    .split("/")
+    .split("/app/")
     .filter((segment) => segment);
 
   return (
@@ -53,7 +53,7 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                <BreadcrumbLink href="/app">Home</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               {pathSegments.map((segment, index) => {
