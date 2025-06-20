@@ -220,14 +220,14 @@ const Dashboard = () => {
               Monitor your inventory and sales performance
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          {/* <div className="flex items-center gap-4">
             <button
               onClick={() => setRunTour(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Tutorial
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Metrics Section */}

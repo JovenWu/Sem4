@@ -34,10 +34,28 @@ import { Separator } from "./ui/separator";
 import { FaSignOutAlt } from "react-icons/fa";
 import { BsBoxSeam } from "react-icons/bs";
 
-const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
-  const [isToggleOpen, setIsToggleOpen] = useState({
-    settings: false,
+const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
+  // Persist collapsed state in localStorage
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const stored = localStorage.getItem("sidebar-collapsed");
+    return stored === null ? !!isCollapsedProp : stored === "true";
   });
+
+  // Restore settings toggle state for collapsible section
+  const [isToggleOpen, setIsToggleOpen] = useState({ settings: false });
+
+  // Sync prop to state if prop changes
+  useEffect(() => {
+    if (typeof isCollapsedProp === "boolean") {
+      setIsCollapsed(isCollapsedProp);
+    }
+  }, [isCollapsedProp]);
+
+  // Save to localStorage when collapsed state changes
+  useEffect(() => {
+    localStorage.setItem("sidebar-collapsed", isCollapsed);
+  }, [isCollapsed]);
+
   const location = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState({ name: "", role: "" });
@@ -334,10 +352,10 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             {/* Analytics */}
             <SectionTitle title="Analytics" />
             {renderNavItem(
-              "/app/inventory",
+              "/app/forecast",
               "Forecasting",
               <LuChartLine size={iconSize} />,
-              isActive("/app/inventory")
+              isActive("/app/forecast")
             )}
             {renderNavItem(
               "/app/reports",
@@ -366,15 +384,9 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
                 )}
                 {renderNavItem(
                   "/app/employees",
-                  "Account",
+                  "Team Management",
                   <PiWrench size={iconSize} />,
                   isActive("/app/employees")
-                )}
-                {renderNavItem(
-                  "/help",
-                  "Help Center",
-                  <GoGear size={iconSize} />,
-                  isActive("/help")
                 )}
               </>
             )}

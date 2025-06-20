@@ -15,13 +15,14 @@ import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import StockLevel from "./pages/StockLevel";
 import Reports from "./pages/Reports";
+import Unauthorized401 from "./pages/Unauthorized401";
 
 function App() {
   return (
     <Routes>
       <Route path="/app" element={<RootLayout />}>
         <Route index element={<Dashboard />} />
-        <Route path="inventory" element={<Inventory />} />
+        <Route path="forecast" element={<Inventory />} />
         <Route path="purchase" element={<PurchaseOrder />} />
         <Route path="sales-history" element={<SalesHistory />} />
         <Route path="sales" element={<Sales />} />
@@ -32,6 +33,7 @@ function App() {
         <Route path="products" element={<Products />} />
         <Route path="stock-levels" element={<StockLevel />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="unauthorized" element={<Unauthorized401 />} />
       </Route>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginForm />} />

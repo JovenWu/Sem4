@@ -5,28 +5,31 @@ import { Toaster } from "@/components/ui/sonner";
 import AppTour from "../components/AppTour";
 
 const RootLayout = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  // Initialize from localStorage
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem("sidebar-collapsed");
+    return stored === "true";
+  });
+  // Initialize isSidebarOpen based on screen size
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    () => window.innerWidth >= 768
+  );
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [runTour, setRunTour] = useState(false);
 
   useEffect(() => {
-    const checkScreenSize = () => {
-      const newIsMobile = window.innerWidth < 768;
-      setIsMobile(newIsMobile);
-
-      if (newIsMobile) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+    // Only set initial state on mount
+    const newIsMobile = window.innerWidth < 768;
+    setIsMobile(newIsMobile);
+    setIsSidebarOpen(!newIsMobile); // open on desktop, closed on mobile
+    // Update isMobile and auto-close sidebar when switching to mobile
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setIsSidebarOpen(false);
     };
-
-    checkScreenSize();
-
-    window.addEventListener("resize", checkScreenSize);
-
-    return () => window.removeEventListener("resize", checkScreenSize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const toggleSidebar = () => {
@@ -35,6 +38,7 @@ const RootLayout = () => {
     } else {
       const newCollapsed = !isSidebarCollapsed;
       setIsSidebarCollapsed(newCollapsed);
+      localStorage.setItem("sidebar-collapsed", newCollapsed);
     }
   };
 
