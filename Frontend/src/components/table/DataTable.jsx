@@ -58,9 +58,31 @@ export default function DataTable({
   manualPagination = false,
   manualFiltering = false,
   manualSorting = false,
+  columnVisibility: propColumnVisibility,
+  onColumnVisibilityChange: propOnColumnVisibilityChange,
   ...props
 }) {
-  const [columnVisibility, setColumnVisibility] = useState({});
+  // If parent passes columnVisibility, use it as controlled; otherwise, set initial state from columns
+  const getDefaultColumnVisibility = () => {
+    const visibility = {};
+    columns.forEach((col) => {
+      if (col.accessorKey && (col.visible === false || col.show === false)) {
+        visibility[col.accessorKey] = false;
+      }
+    });
+    return visibility;
+  };
+  const [columnVisibility, setColumnVisibility] = useState(
+    getDefaultColumnVisibility()
+  );
+
+  // Use controlled or internal state
+  const effectiveColumnVisibility =
+    propColumnVisibility !== undefined
+      ? propColumnVisibility
+      : columnVisibility;
+  const handleColumnVisibilityChange =
+    propOnColumnVisibilityChange || setColumnVisibility;
 
   const table = useReactTable({
     data,
@@ -71,12 +93,12 @@ export default function DataTable({
     manualFiltering,
     manualSorting,
     pageCount: manualPagination ? pageCount : undefined,
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: handleColumnVisibilityChange,
     state: {
       pagination: { pageIndex, pageSize },
       globalFilter,
       sorting,
-      columnVisibility,
+      columnVisibility: effectiveColumnVisibility,
     },
     onPaginationChange: manualPagination ? onPaginationChange : undefined,
     onGlobalFilterChange: manualFiltering ? onGlobalFilterChange : undefined,

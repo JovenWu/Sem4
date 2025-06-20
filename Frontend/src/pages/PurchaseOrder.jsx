@@ -668,7 +668,6 @@ const PurchaseOrder = () => {
           filterPlaceholder="Filter purchase orders..."
           data-tour="purchase-table"
           loading={loading}
-          // Server-side props
           manualPagination={true}
           manualFiltering={true}
           manualSorting={true}

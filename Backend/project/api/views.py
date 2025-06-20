@@ -674,7 +674,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
     lookup_field = 'supplier_id'
     permission_classes = [AllowAny]
-    pagination_class = StandardResultsSetPagination
+    pagination_class = LimitOffsetPagination
     filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
     search_fields = ['name', 'contact_person', 'email', 'phone']
     ordering_fields = ['name', 'supplier_id']
@@ -686,7 +686,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerSerializer
     lookup_field = 'customer_id'
     permission_classes = [AllowAny]
-    pagination_class = StandardResultsSetPagination
+    pagination_class = LimitOffsetPagination
     filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['name', 'customer_id']

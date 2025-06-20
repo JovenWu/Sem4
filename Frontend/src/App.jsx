@@ -9,6 +9,8 @@ import Employees from "./pages/Employees";
 import Profile from "./pages/Profile";
 import LandingPage from "./pages/LandingPage";
 import LoginForm from "./pages/LoginForm";
+import Suppliers from "./pages/Suppliers";
+import Customers from "./pages/Customers";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="sales" element={<SalesOrder />} />
         <Route path="employees" element={<Employees />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        <Route path="customers" element={<Customers />} />
       </Route>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginForm />} />
