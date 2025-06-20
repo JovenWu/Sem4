@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import PageLayout from "../layouts/PageLayout";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,15 @@ import { Badge } from "@/components/ui/badge";
 import DataTable from "@/components/table/DataTable";
 import { PoColumns } from "@/components/table/PoColumns";
 import { toast } from "sonner";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandItem,
+  CommandEmpty,
+  CommandGroup,
+  CommandSeparator,
+} from "@/components/ui/command";
 
 const productSchema = z.object({
   product: z.string().min(1, { message: "Product is required" }),
@@ -54,8 +63,16 @@ const productSchema = z.object({
   unit_cost_price: z.number().positive({ message: "Price must be positive" }),
 });
 
+const supplierSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  contact_person: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  address: z.string().optional(),
+});
+
 const formSchema = z.object({
-  supplier_name: z.string().min(1, { message: "Supplier name is required" }),
+  supplier_id: z.string().min(1, { message: "Supplier is required" }),
   items: z
     .array(productSchema)
     .min(1, { message: "At least one product is required" }),
@@ -74,8 +91,11 @@ const PurchaseOrder = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [products, setProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierPopoverOpen, setSupplierPopoverOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [addingSupplier, setAddingSupplier] = useState(false);
 
-  // Server-side pagination state
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
@@ -89,7 +109,7 @@ const PurchaseOrder = () => {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      supplier_name: "",
+      supplier_id: "",
       items: [{ product: "", ordered_quantity: 1, unit_cost_price: 0 }],
       order_date: undefined,
       expected_delivery_date: undefined,
@@ -190,6 +210,35 @@ const PurchaseOrder = () => {
     }
   };
 
+  // Fetch suppliers for popover
+  const fetchSuppliersList = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/suppliers/?limit=1000&search=${encodeURIComponent(
+          supplierSearch
+        )}`
+      );
+      const data = await res.json();
+      setSuppliers(data.results || data);
+    } catch (err) {
+      console.error("Error fetching suppliers:", err);
+      setSuppliers([]);
+    }
+  }, [supplierSearch]);
+
+  // Update suppliers immediately on search change for instant UI feedback
+  useEffect(() => {
+    // Only fetch if popover is open
+    if (supplierPopoverOpen) {
+      // Set immediate empty state for better UI responsiveness
+      fetchSuppliersList();
+    }
+  }, [supplierSearch, supplierPopoverOpen, fetchSuppliersList]);
+
+  useEffect(() => {
+    if (supplierPopoverOpen) fetchSuppliersList();
+  }, [supplierPopoverOpen, supplierSearch, fetchSuppliersList]);
+
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -223,7 +272,7 @@ const PurchaseOrder = () => {
         .split("T")[0];
 
       const requestPayload = {
-        supplier_name: data.supplier_name,
+        supplier_id: data.supplier_id,
         order_date: formattedOrderDate,
         expected_delivery_date: formattedDeliveryDate,
         status: data.status,
@@ -255,7 +304,7 @@ const PurchaseOrder = () => {
       }
 
       toast.success("Purchase order created successfully", {
-        description: `Purchase order for ${data.supplier_name} has been created.`,
+        description: `Purchase order for ${data.supplier_id} has been created.`,
       });
 
       fetchPurchaseOrders();
@@ -345,19 +394,152 @@ const PurchaseOrder = () => {
                   >
                     <FormField
                       control={form.control}
-                      name="supplier_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Supplier Name</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Supplier Co., Ltd."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      name="supplier_id"
+                      render={({ field }) => {
+                        const searchTrimmed = supplierSearch.trim();
+
+                        // Check if we have an exact match for the search term
+                        const exactMatch = suppliers.some(
+                          (supplier) =>
+                            supplier.name.toLowerCase() ===
+                            searchTrimmed.toLowerCase()
+                        );
+
+                        // Show Add button when there's a search term and no exact match
+                        const showAddButton =
+                          searchTrimmed !== "" && !exactMatch;
+
+                        useEffect(() => {
+                          // Force immediate fetch when search changes
+                          if (supplierPopoverOpen) {
+                            fetchSuppliersList();
+                          }
+                        }, [supplierSearch, supplierPopoverOpen]);
+
+                        return (
+                          <FormItem>
+                            <FormLabel>Supplier</FormLabel>
+                            <Popover
+                              open={supplierPopoverOpen}
+                              onOpenChange={(open) => {
+                                setSupplierPopoverOpen(open);
+                                // Fetch initial list when opening
+                                if (open) {
+                                  fetchSuppliersList();
+                                }
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className="w-full justify-between"
+                                >
+                                  {suppliers.find(
+                                    (s) => s.supplier_id === field.value
+                                  )?.name || "Select supplier"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="p-0 w-80">
+                                <Command shouldFilter={false}>
+                                  <CommandInput
+                                    placeholder="Search suppliers..."
+                                    value={supplierSearch}
+                                    onValueChange={(newValue) => {
+                                      setSupplierSearch(newValue);
+                                      // This helps with immediate reactivity
+                                      console.log(
+                                        "Search changed to:",
+                                        newValue
+                                      );
+                                    }}
+                                  />
+                                  <CommandList>
+                                    {/* Show when no results found */}
+                                    <CommandEmpty>
+                                      {searchTrimmed !== ""
+                                        ? "No supplier found."
+                                        : "Type to search suppliers."}
+                                    </CommandEmpty>
+
+                                    {/* Supplier results */}
+                                    {suppliers.length > 0 && (
+                                      <CommandGroup heading="Suppliers">
+                                        {suppliers.map((supplier) => (
+                                          <CommandItem
+                                            key={supplier.supplier_id}
+                                            value={supplier.name}
+                                            onSelect={() => {
+                                              form.setValue(
+                                                "supplier_id",
+                                                supplier.supplier_id
+                                              );
+                                              setSupplierPopoverOpen(false);
+                                            }}
+                                          >
+                                            {supplier.name}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    )}
+
+                                    {/* Add button at the bottom when needed */}
+                                    {showAddButton && (
+                                      <CommandGroup heading="Actions">
+                                        <CommandItem
+                                          onSelect={async () => {
+                                            setAddingSupplier(true);
+                                            try {
+                                              const res = await fetch(
+                                                "/api/suppliers/",
+                                                {
+                                                  method: "POST",
+                                                  headers: {
+                                                    "Content-Type":
+                                                      "application/json",
+                                                  },
+                                                  body: JSON.stringify({
+                                                    name: searchTrimmed,
+                                                  }),
+                                                }
+                                              );
+                                              if (!res.ok)
+                                                throw new Error(
+                                                  "Failed to add supplier"
+                                                );
+                                              const data = await res.json();
+                                              form.setValue(
+                                                "supplier_id",
+                                                data.supplier_id
+                                              );
+                                              setSupplierPopoverOpen(false);
+                                              setSupplierSearch("");
+                                              fetchSuppliersList();
+                                              toast.success("Supplier added");
+                                            } catch {
+                                              toast.error(
+                                                "Failed to add supplier"
+                                              );
+                                            } finally {
+                                              setAddingSupplier(false);
+                                            }
+                                          }}
+                                          className="text-primary cursor-pointer"
+                                          disabled={addingSupplier}
+                                        >
+                                          <FiPlus className="mr-2" /> Add
+                                          supplier "{searchTrimmed}"
+                                        </CommandItem>
+                                      </CommandGroup>
+                                    )}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
 
                     {/* Products Section */}
