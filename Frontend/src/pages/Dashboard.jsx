@@ -10,6 +10,7 @@ import {
 } from "../components/ui/card";
 import { LineChart, BarChart } from "../components/ui/chart";
 import { Skeleton } from "../components/ui/skeleton";
+import { checkUserRole, canAccess } from "../lib/auth";
 
 const Dashboard = () => {
   const { toggleSidebar, isMobile, setRunTour } = useOutletContext();
@@ -31,6 +32,12 @@ const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("dashboard", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);

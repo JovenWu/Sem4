@@ -5,6 +5,7 @@ import * as z from "zod";
 import DataTable from "@/components/table/DataTable";
 import { SalesColumns } from "@/components/table/SalesColumns";
 import { toast } from "sonner";
+import { canAccess } from "../lib/auth";
 
 const itemSchema = z.object({
   product_id: z.string().min(1, { message: "Product is required" }),
@@ -116,6 +117,11 @@ const SalesHistory = () => {
   };
 
   useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("salesHistory", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
     fetchSalesData();
   }, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting]);
 

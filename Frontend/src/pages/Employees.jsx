@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { canAccess } from "../lib/auth";
 
 const ROLES = ["Owner", "Admin", "Procurement", "Sales", "Inventory"];
 
@@ -85,6 +86,11 @@ const Employees = () => {
   }, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting]);
 
   useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("teamManagement", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
     fetchEmployees();
   }, [fetchEmployees]);
 

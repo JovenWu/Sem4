@@ -41,6 +41,7 @@ import {
   CommandEmpty,
   CommandGroup,
 } from "@/components/ui/command";
+import { canAccess } from "../lib/auth";
 
 const PAGE_SIZE = 10;
 
@@ -300,6 +301,15 @@ const Products = () => {
       document.activeElement.blur();
     }, 0);
   };
+
+  useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("products", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
+    fetchProducts();
+  }, []);
 
   return (
     <PageLayout

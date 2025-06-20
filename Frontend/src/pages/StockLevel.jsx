@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { canAccess } from "../lib/auth";
 
 const StockLevel = () => {
   const { toggleSidebar, isMobile } = useOutletContext();
@@ -74,6 +75,12 @@ const StockLevel = () => {
   }, []);
 
   useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("stockLevels", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
+
     fetchStockInfo();
   }, [fetchStockInfo]);
 

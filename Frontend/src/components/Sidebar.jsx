@@ -107,6 +107,7 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
             name: data.username,
             role: data.groups,
           });
+          localStorage.setItem("userRole", data.groups); // Store user role for access control
         } else if (res.status === 401) {
           localStorage.removeItem("access");
           localStorage.removeItem("refresh");
@@ -458,12 +459,6 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
                 </div>
               </div>
               <div className="py-2">
-                <button
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
-                  onClick={() => navigate("/app/employees")}
-                >
-                  <PiWrench size={18} /> Account
-                </button>
                 <button
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
                   onClick={() => {

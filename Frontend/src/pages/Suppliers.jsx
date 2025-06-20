@@ -28,6 +28,7 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { canAccess } from "../lib/auth";
 
 const PAGE_SIZE = 10;
 
@@ -104,6 +105,11 @@ const Suppliers = () => {
   }, [pagination, globalFilter, sorting]);
 
   useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("suppliers", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
     fetchSuppliers();
   }, [fetchSuppliers]);
 

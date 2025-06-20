@@ -47,6 +47,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { canAccess } from "../lib/auth";
 
 const itemSchema = z.object({
   product_id: z.string().min(1, { message: "Product is required" }),
@@ -75,11 +76,9 @@ const formSchema = z.object({
 });
 
 const Sales = () => {
-  // Function to generate consistent colors based on category name
   const getCategoryColor = (category) => {
-    if (!category) return "bg-gray-100 text-gray-800"; // Default for undefined
+    if (!category) return "bg-gray-100 text-gray-800";
 
-    // Predefined color options
     const colorOptions = [
       "bg-blue-100 text-blue-800",
       "bg-green-100 text-green-800",
@@ -93,7 +92,6 @@ const Sales = () => {
       "bg-cyan-100 text-cyan-800",
     ];
 
-    // Use the sum of character codes to pick a consistent color
     const categorySum = category
       .split("")
       .reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -127,6 +125,14 @@ const Sales = () => {
       items: [],
     },
   });
+
+  useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("sales", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
+  }, []);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -1101,4 +1107,5 @@ const Sales = () => {
     return subtotal - (subtotal * discount) / 100;
   }
 };
+
 export default Sales;

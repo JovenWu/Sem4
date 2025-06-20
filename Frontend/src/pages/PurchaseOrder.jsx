@@ -54,6 +54,7 @@ import {
   CommandGroup,
   CommandSeparator,
 } from "@/components/ui/command";
+import { canAccess } from "../lib/auth";
 
 const productSchema = z.object({
   product: z.string().min(1, { message: "Product is required" }),
@@ -62,7 +63,6 @@ const productSchema = z.object({
     .positive({ message: "Quantity must be positive" }),
   unit_cost_price: z.number().positive({ message: "Price must be positive" }),
 });
-
 
 const formSchema = z.object({
   po_id: z.string().min(1, { message: "PO ID is required" }), // Add po_id to schema
@@ -347,6 +347,15 @@ const PurchaseOrder = () => {
       notes: po.notes || "",
     };
   });
+
+  useEffect(() => {
+    const userRole = localStorage.getItem("userRole");
+    if (!canAccess("purchaseOrders", userRole)) {
+      window.location.assign("/app/unauthorized");
+      return;
+    }
+    fetchPurchaseOrders();
+  }, []);
 
   return (
     <PageLayout
