@@ -10,7 +10,10 @@ const Table = React.forwardRef(function Table({ className, ...props }, ref) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn(
+          "w-full caption-bottom text-sm dark:text-slate-200",
+          className
+        )}
         ref={ref}
         {...props}
       />
@@ -71,7 +74,7 @@ const TableRow = React.forwardRef(function TableRow(
     <tr
       data-slot="table-row"
       className={cn(
-        "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        "hover:bg-muted/50 dark:hover:bg-slate-700/50 data-[state=selected]:bg-muted dark:data-[state=selected]:bg-slate-700 border-b dark:border-slate-700 transition-colors",
         className
       )}
       ref={ref}
@@ -88,7 +91,7 @@ const TableHead = React.forwardRef(function TableHead(
     <th
       data-slot="table-head"
       className={cn(
-        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "text-foreground dark:text-white h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       ref={ref}
@@ -105,7 +108,7 @@ const TableCell = React.forwardRef(function TableCell(
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "p-2 align-middle whitespace-nowrap dark:text-slate-300 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       ref={ref}

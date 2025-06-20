@@ -95,17 +95,17 @@ const LoginForm = () => {
       setLoading(false);
     }
   }
-
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-slate-900">
       <CardWrapper
         label="Enter your username and password below to log into your account"
         title="Login"
         backButtonLabel="Don't have an account? Register here!"
         backButtonHref="/register"
       >
+        {" "}
         {error && (
-          <div className="mb-4 flex items-center gap-2 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700 shadow">
+          <div className="mb-4 flex items-center gap-2 rounded border border-red-400 bg-red-100 dark:bg-red-900/50 dark:border-red-700 px-4 py-3 text-red-700 dark:text-red-400 shadow">
             <svg
               className="w-5 h-5 text-red-500"
               fill="none"

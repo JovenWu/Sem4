@@ -263,20 +263,19 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
   const SectionDivider = () => (
     <Separator orientation="horizontal" className="my-2" />
   );
-
   return (
     <div
-      className={`bg-white p-2 h-[98vh] shadow-lg transition-all duration-300 ease-in-out border-1 overflow-hidden ${
+      className={`bg-white dark:bg-slate-900 p-2 h-[98vh] shadow-lg transition-all duration-300 ease-in-out border-1 overflow-hidden ${
         collapsed ? "w-16" : "w-60"
       } ${isMobile ? "rounded-none h-full border-0" : "rounded-lg  m-2"}`}
     >
       <div className="flex flex-col h-full relative">
+        {" "}
         <div
-          className="w-full"
+          className="w-full bg-white dark:bg-slate-900"
           style={{
             position: "sticky",
             top: 0,
-            background: "white",
             zIndex: 20,
             paddingTop: "0.5rem",
             paddingBottom: "0.5rem",
@@ -394,13 +393,12 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
           </div>
         </div>
         <div
-          className={`w-full ${
+          className={`w-full bg-white dark:bg-slate-900 ${
             collapsed ? "flex justify-center items-center" : "px-2"
           }`}
           style={{
             position: "sticky",
             bottom: 0,
-            background: "white",
             zIndex: 10,
             paddingTop: "0.5rem",
             paddingBottom: "0.5rem",
@@ -409,15 +407,16 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className={`flex items-center rounded-lg transition-colors duration-200 hover:bg-gray-100 cursor-pointer ${
+                className={`flex items-center rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer ${
                   collapsed
                     ? "justify-center w-10 h-10 p-0"
                     : "w-full px-3 py-2"
                 }`}
               >
                 <div className="flex items-center w-full">
+                  {" "}
                   <div className="flex items-center justify-center w-10">
-                    <div className="bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-gray-700">
+                    <div className="bg-slate-200dark:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center font-bold text-gray-700 dark:text-gray-200">
                       {user.name ? user.name[0].toUpperCase() : ""}
                     </div>
                   </div>
@@ -431,36 +430,44 @@ const Sidebar = ({ isCollapsed: isCollapsedProp, isMobile, onCloseMobile }) => {
                   >
                     {!collapsed && (
                       <>
-                        <span className="font-semibold text-sm">
+                        {" "}
+                        <span className="font-semibold text-sm dark:text-white">
                           {user.name}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {user.role}
                         </span>
                       </>
                     )}
-                  </div>
+                  </div>{" "}
                   {!collapsed && (
-                    <GoChevronRight className="ml-auto text-gray-400" />
+                    <GoChevronRight className="ml-auto text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
               </button>
-            </PopoverTrigger>
-            <PopoverContent side="right" className="w-64 p-0 -translate-y-4">
-              <div className="p-4 border-b">
+            </PopoverTrigger>{" "}
+            <PopoverContent
+              side="right"
+              className="w-64 p-0 -translate-y-4 dark:bg-slate-800 dark:border-slate-700"
+            >
+              <div className="p-4 border-b dark:border-slate-700">
                 <div className="flex items-center gap-3">
-                  <div className="bg-slate-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700">
+                  <div className="bg-slate-200 dark:bg-slate-700 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700 dark:text-gray-200">
                     {user.name ? user.name[0].toUpperCase() : ""}
                   </div>
                   <div>
-                    <div className="font-semibold">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.role}</div>
+                    <div className="font-semibold dark:text-white">
+                      {user.name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {user.role}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </div>{" "}
               <div className="py-2">
                 <button
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700 dark:text-white transition-colors"
                   onClick={() => {
                     localStorage.removeItem("access");
                     localStorage.removeItem("refresh");

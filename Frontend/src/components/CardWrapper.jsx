@@ -18,11 +18,13 @@ const CardWrapper = ({
   children,
 }) => {
   return (
-    <Card className="w-100 shadow-md">
+    <Card className="w-100 shadow-md dark:bg-slate-800 dark:border-slate-700">
       <CardHeader>
         <div className="w-full flex flex-col space-y-2">
-          <h1 className="text-xl font-semibold">{title}</h1>
-          <p className="text-muted-foreground text-sm">{label}</p>
+          <h1 className="text-xl font-semibold dark:text-white">{title}</h1>
+          <p className="text-muted-foreground text-sm dark:text-slate-300">
+            {label}
+          </p>
         </div>
       </CardHeader>
       <CardContent>{children}</CardContent>

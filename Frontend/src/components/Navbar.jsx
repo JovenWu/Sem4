@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "./ui/breadcrumb";
 import { useLocation } from "react-router-dom";
+import { ThemeToggle } from "./theme-toggle";
 
 const Navbar = ({ toggleSidebar, isMobile }) => {
   const location = useLocation();
@@ -37,7 +38,7 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
 
   return (
     <div
-      className={`sticky top-0 z-20 bg-white mb-4 py-3 pl-2 mx-3 mt-2 border-stone-300 transition-shadow duration-300 ${
+      className={`sticky top-0 z-20 bg-white dark:bg-slate-900 mb-4 py-3 pl-2 mx-3 mt-2 border-stone-300 transition-shadow duration-300 ${
         scrolled ? "shadow-md rounded-md mt-4" : ""
       }`}
     >
@@ -45,12 +46,15 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
         <div className="flex items-center gap-2 mb-2 md:mb-0 h-8">
           <button
             onClick={toggleSidebar}
-            className="p-1 hover:bg-stone-100 rounded-md transition-colors cursor-pointer"
+            className="p-1 hover:bg-stone-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
             aria-label={isMobile ? "Open sidebar" : "Toggle sidebar"}
           >
-            <FiSidebar className="text-gray-700" size={22} />
+            <FiSidebar className="text-gray-700 dark:text-gray-300" size={22} />
           </button>
-          <Separator orientation="vertical" className="bg-stone-300" />
+          <Separator
+            orientation="vertical"
+            className="bg-stone-300 dark:bg-slate-700"
+          />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -80,6 +84,11 @@ const Navbar = ({ toggleSidebar, isMobile }) => {
               })}
             </BreadcrumbList>
           </Breadcrumb>
+        </div>
+
+        {/* Theme toggle button */}
+        <div className="pr-4">
+          <ThemeToggle />
         </div>
       </div>
     </div>

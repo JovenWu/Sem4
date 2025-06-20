@@ -3,6 +3,7 @@ import Sidebar from "../components/Sidebar";
 import { Outlet } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import AppTour from "../components/AppTour";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const RootLayout = () => {
   // Initialize from localStorage
@@ -48,9 +49,8 @@ const RootLayout = () => {
     }
     return isSidebarCollapsed ? "ml-[4rem]" : "ml-[15rem]";
   };
-
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white dark:bg-slate-900 text-black dark:text-white min-h-screen">
       {isMobile && (
         <div
           className={`fixed inset-0 bg-black transition-opacity duration-300 ease-in-out z-30 ${
@@ -75,7 +75,7 @@ const RootLayout = () => {
         <Outlet context={{ toggleSidebar, isMobile, setRunTour }} />
       </div>
       <Toaster className="!z-[9999]" />
-      <AppTour runTour={runTour} setRunTour={setRunTour} />
+      <AppTour runTour={runTour} setRunTour={setRunTour} />{" "}
     </div>
   );
 };

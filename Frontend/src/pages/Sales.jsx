@@ -720,7 +720,7 @@ const Sales = () => {
                         <ScrollArea className="h-[300px] border rounded-md p-2">
                           {fields.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-[250px] text-muted-foreground">
-                              <FiShoppingCart className="h-12 w-12 mb-3 text-gray-400" />
+                              <FiShoppingCart className="h-12 w-12 mb-3 text-gray-400 dark:text-gray-300" />
                               <p className="text-lg font-medium mb-1">
                                 Cart is empty
                               </p>
@@ -735,8 +735,9 @@ const Sales = () => {
                                   key={item.id}
                                   className="flex flex-col border-b pb-3 last:border-b-0 last:pb-0 mb-3 last:mb-0"
                                 >
-                                  <div className="flex justify-between items-center mb-2 bg-slate-50 p-2 rounded-md">
-                                    <div className="font-medium text-slate-800">
+                                  {" "}
+                                  <div className="flex justify-between items-center mb-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-md">
+                                    <div className="font-medium text-slate-800 dark:text-white">
                                       {getProductName(item.product_id)}
                                     </div>
                                     <Button
@@ -751,13 +752,12 @@ const Sales = () => {
                                       <FiTrash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
-
                                   <div className="grid grid-cols-12 gap-2 items-center">
                                     <div className="col-span-4">
                                       <div className="text-xs text-muted-foreground mb-1">
                                         Quantity
                                       </div>
-                                      <div className="flex items-center border rounded-md bg-white">
+                                      <div className="flex items-center border rounded-md bg-white dark:bg-slate-800 dark:border-slate-700">
                                         <Button
                                           type="button"
                                           variant="ghost"
@@ -869,7 +869,6 @@ const Sales = () => {
                                       </div>
                                     </div>
                                   </div>
-
                                   <div className="flex justify-between items-center mt-3">
                                     <div className="text-xs text-muted-foreground">
                                       {form.getValues(

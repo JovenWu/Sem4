@@ -70,44 +70,43 @@ export function ProductDialog({ product, isOpen, setIsOpen }) {
         ) : (
           <div className="py-4">
             <div className="grid grid-cols-2 gap-4">
+              {" "}
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Category</h3>
-                <p>{product.category}</p>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Category
+                </h3>
+                <p className="dark:text-white">{product.category}</p>
               </div>
-
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Status
+                </h3>
                 <Badge className={getStatusBadgeClass(product.status)}>
                   {product.status}
                 </Badge>
               </div>
-
               <div>
                 <h3 className="text-sm font-medium text-gray-500">
                   Unit Price
                 </h3>
                 <p>{product.unitPrice}</p>
               </div>
-
               <div>
                 <h3 className="text-sm font-medium text-gray-500">
                   Competitor Price
                 </h3>
                 <p>{product.competitorPrice}</p>
               </div>
-
               <div>
                 <h3 className="text-sm font-medium text-gray-500">
                   Current Stock
                 </h3>
                 <p>{product.currentStock}</p>
               </div>
-
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Forecast</h3>
                 <p className="text-blue-600">{product.forecast}</p>
               </div>
-
               {product.predictedSales && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">
@@ -116,7 +115,6 @@ export function ProductDialog({ product, isOpen, setIsOpen }) {
                   <p>{product.predictedSales}</p>
                 </div>
               )}
-
               {product.requiredStock && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">
@@ -125,7 +123,6 @@ export function ProductDialog({ product, isOpen, setIsOpen }) {
                   <p>{product.requiredStock}</p>
                 </div>
               )}
-
               {product.overstockThreshold && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">

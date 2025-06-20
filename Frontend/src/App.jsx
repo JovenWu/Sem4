@@ -16,28 +16,31 @@ import Products from "./pages/Products";
 import StockLevel from "./pages/StockLevel";
 import Reports from "./pages/Reports";
 import Unauthorized401 from "./pages/Unauthorized401";
+import { ThemeProvider } from "./components/theme-provider";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/app" element={<RootLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="forecast" element={<Inventory />} />
-        <Route path="purchase" element={<PurchaseOrder />} />
-        <Route path="sales-history" element={<SalesHistory />} />
-        <Route path="sales" element={<Sales />} />
-        <Route path="employees" element={<Employees />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="suppliers" element={<Suppliers />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="products" element={<Products />} />
-        <Route path="stock-levels" element={<StockLevel />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="unauthorized" element={<Unauthorized401 />} />
-      </Route>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginForm />} />
-    </Routes>
+    <ThemeProvider defaultTheme="system" storageKey="inventory-theme">
+      <Routes>
+        <Route path="/app" element={<RootLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="forecast" element={<Inventory />} />
+          <Route path="purchase" element={<PurchaseOrder />} />
+          <Route path="sales-history" element={<SalesHistory />} />
+          <Route path="sales" element={<Sales />} />
+          <Route path="employees" element={<Employees />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="suppliers" element={<Suppliers />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="products" element={<Products />} />
+          <Route path="stock-levels" element={<StockLevel />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="unauthorized" element={<Unauthorized401 />} />
+        </Route>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginForm />} />
+      </Routes>
+    </ThemeProvider>
   );
 }
 

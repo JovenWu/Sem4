@@ -10,8 +10,13 @@ const Welcome = () => {
           className="size-8 rounded shrink-0 bg-violet-500 shadow "
         />
         <div className="text-start whitespace-nowrap overflow-hidden text-ellipsis block w-48">
-          <span className="text-sm font-bold block">Welcome to</span>
-          <span className="text-xs block text-stone-500">Superstore System!</span>
+          {" "}
+          <span className="text-sm font-bold block dark:text-white">
+            Welcome to
+          </span>
+          <span className="text-xs block text-stone-500 dark:text-slate-400">
+            Superstore System!
+          </span>
         </div>
       </button>
     </div>

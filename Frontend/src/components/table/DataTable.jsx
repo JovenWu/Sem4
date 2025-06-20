@@ -136,8 +136,11 @@ export default function DataTable({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
+            {" "}
             <div className="px-2 py-1.5">
-              <p className="font-medium text-sm">Toggle columns</p>
+              <p className="font-medium text-sm dark:text-white">
+                Toggle columns
+              </p>
             </div>
             <DropdownMenuSeparator />
             {table
@@ -158,9 +161,8 @@ export default function DataTable({
               })}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-
-      <div className="overflow-hidden border rounded-md">
+      </div>{" "}
+      <div className="overflow-hidden border dark:border-slate-700 rounded-md">
         <div className="overflow-x-auto">
           <Table className="min-w-full text-sm">
             <TableHeader>
