@@ -83,14 +83,14 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING('Skipping purchase orders seeding...'))
 
-            # Step 5: Seed Sales Records (this will reduce stock levels)
+            # Step 5: Seed Sales Transactions (normalized)
             if not options['skip_sales']:
                 self.stdout.write('\n' + '='*50)
-                self.stdout.write(self.style.SUCCESS('STEP 5: Seeding Sales Records'))
+                self.stdout.write(self.style.SUCCESS('STEP 5: Seeding Sales Transactions'))
                 self.stdout.write('='*50)
-                call_command('seed_sales_records', **({'no_clean': True} if options['no_clean'] else {}))
+                call_command('seed_sales_transactions', **({'no_clean': True} if options['no_clean'] else {}))
             else:
-                self.stdout.write(self.style.WARNING('Skipping sales records seeding...'))
+                self.stdout.write(self.style.WARNING('Skipping sales transactions seeding...'))
 
             self.stdout.write('\n' + '='*50)
             self.stdout.write(self.style.SUCCESS('DATABASE SEEDING COMPLETED SUCCESSFULLY!'))
@@ -105,7 +105,7 @@ class Command(BaseCommand):
 
     def clean_existing_data(self):
         """Clean existing data in the correct order to avoid foreign key constraints"""
-        from api.models import SalesRecords, PurchaseOrderItems, PurchaseOrders, Products, Categories, Supplier, Customer
+        from api.models import SalesRecordItem, SalesTransaction, PurchaseOrderItems, PurchaseOrders, Products, Categories, Supplier, Customer
         from django.db import connection
         self.stdout.write('Cleaning existing data in dependency order...')
         # Temporarily disable foreign key constraints for SQLite
@@ -113,10 +113,14 @@ class Command(BaseCommand):
             cursor.execute('PRAGMA foreign_keys = OFF;')
         try:
             # Delete in reverse dependency order
-            sales_count = SalesRecords.objects.count()
-            if sales_count > 0:
-                SalesRecords.objects.all().delete()
-                self.stdout.write(f'Deleted {sales_count} sales records')
+            sales_items_count = SalesRecordItem.objects.count()
+            if sales_items_count > 0:
+                SalesRecordItem.objects.all().delete()
+                self.stdout.write(f'Deleted {sales_items_count} sales record items')
+            sales_tx_count = SalesTransaction.objects.count()
+            if sales_tx_count > 0:
+                SalesTransaction.objects.all().delete()
+                self.stdout.write(f'Deleted {sales_tx_count} sales transactions')
             po_items_count = PurchaseOrderItems.objects.count()
             if po_items_count > 0:
                 PurchaseOrderItems.objects.all().delete()
@@ -150,12 +154,13 @@ class Command(BaseCommand):
     def display_summary(self):
         """Display a summary of seeded data"""
         try:
-            from api.models import Categories, Products, PurchaseOrders, PurchaseOrderItems, SalesRecords, Supplier, Customer
+            from api.models import Categories, Products, PurchaseOrders, PurchaseOrderItems, SalesTransaction, SalesRecordItem, Supplier, Customer
             categories_count = Categories.objects.count()
             products_count = Products.objects.count()
             purchase_orders_count = PurchaseOrders.objects.count()
             purchase_order_items_count = PurchaseOrderItems.objects.count()
-            sales_records_count = SalesRecords.objects.count()
+            sales_tx_count = SalesTransaction.objects.count()
+            sales_items_count = SalesRecordItem.objects.count()
             supplier_count = Supplier.objects.count()
             customer_count = Customer.objects.count()
             self.stdout.write('\nSEEDING SUMMARY:')
@@ -166,11 +171,12 @@ class Command(BaseCommand):
             self.stdout.write(f'Customers: {customer_count}')
             self.stdout.write(f'Purchase Orders: {purchase_orders_count}')
             self.stdout.write(f'Purchase Order Items: {purchase_order_items_count}')
-            self.stdout.write(f'Sales Records: {sales_records_count}')
+            self.stdout.write(f'Sales Transactions: {sales_tx_count}')
+            self.stdout.write(f'Sales Record Items: {sales_items_count}')
             # Show date ranges
-            if sales_records_count > 0:
-                first_sale = SalesRecords.objects.order_by('transaction_date').first()
-                last_sale = SalesRecords.objects.order_by('-transaction_date').first()
+            if sales_tx_count > 0:
+                first_sale = SalesTransaction.objects.order_by('transaction_date').first()
+                last_sale = SalesTransaction.objects.order_by('-transaction_date').first()
                 self.stdout.write(f'Sales Date Range: {first_sale.transaction_date.date()} to {last_sale.transaction_date.date()}')
             if purchase_orders_count > 0:
                 first_po = PurchaseOrders.objects.order_by('order_date').first()

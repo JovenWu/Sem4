@@ -105,7 +105,10 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
     if (path === "/app") {
       return location.pathname === "/app";
     }
-    return location.pathname.startsWith(path);
+    // Ensure only exact match or next char is '/'
+    return (
+      location.pathname === path || location.pathname.startsWith(path + "/")
+    );
   };
 
   const handleNavItemClick = () => {
@@ -274,7 +277,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <div className={`px-1.5 ${collapsed ? "items-center" : ""}`}>
             <SectionDivider />
-            {/* No Category */}
             <SectionTitle title="" />
             {renderNavItem(
               "/app",
@@ -282,7 +284,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               <LuLayoutDashboard size={iconSize} />,
               isActive("/app")
             )}{" "}
-            {/* Sales */}
             <SectionTitle title="Sales" />
             {renderNavItem(
               "/app/sales",

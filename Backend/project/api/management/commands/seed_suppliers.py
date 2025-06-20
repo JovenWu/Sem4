@@ -86,7 +86,7 @@ class Command(BaseCommand):
             self.stdout.write('Deleting existing suppliers...')
             Supplier.objects.all().delete()
         else:
-            self.stdout.write('Skipping suppliers cleanup (--no-clean flag used)...')
+            self.stdout.write('Skipping supplier cleanup (--no-clean flag used)...')
 
         self.stdout.write('Creating suppliers...')
         for data in SUPPLIER_SEED_DATA:

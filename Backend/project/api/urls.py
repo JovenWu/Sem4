@@ -9,6 +9,7 @@ router.register(r'purchase-order', PurchaseOrdersViewSet)
 router.register(r'suppliers', SupplierViewSet)
 router.register(r'customers', CustomerViewSet)
 router.register(r'sales-transactions', SalesTransactionViewSet)
+router.register(r'reports', ReportViewSet, basename='reports')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -2,7 +2,7 @@ from .models import *
 from .serializers import *
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -28,6 +28,7 @@ from rest_framework.permissions import IsAuthenticated
 import hashlib
 import hashlib
 import calendar
+from .reports import get_sales_report, get_top_selling_products, get_inventory_report, get_inventory_movement_report
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -709,3 +710,78 @@ class SalesTransactionViewSet(viewsets.ModelViewSet):
                 product.current_stock -= item.quantity_sold
                 product.save()
         return Response(self.get_serializer(sales_transaction).data, status=status.HTTP_201_CREATED)
+
+# Add this class after the other ViewSet classes
+class ReportViewSet(viewsets.ViewSet):
+    permission_classes = [AllowAny]  # Change this to IsAuthenticated in production
+    
+    @action(detail=False, methods=['get'])
+    def sales(self, request):
+        """
+        Get sales report data
+        
+        Query params:
+        - start_date: Start date in YYYY-MM-DD format (default: 30 days ago)
+        - end_date: End date in YYYY-MM-DD format (default: today)
+        - period: 'daily', 'weekly', or 'monthly' (default: 'daily')
+        """
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        period = request.query_params.get('period', 'daily')
+        
+        data = get_sales_report(
+            start_date=start_date,
+            end_date=end_date,
+            period=period
+        )
+        
+        return Response(data)
+    
+    @action(detail=False, methods=['get'])
+    def top_products(self, request):
+        """
+        Get top selling products data
+        
+        Query params:
+        - start_date: Start date in YYYY-MM-DD format (default: 30 days ago)
+        - end_date: End date in YYYY-MM-DD format (default: today)
+        - limit: Number of products to return (default: 10)
+        """
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        limit = int(request.query_params.get('limit', 10))
+        
+        data = get_top_selling_products(
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit
+        )
+        
+        return Response(data)
+    
+    @action(detail=False, methods=['get'])
+    def inventory_status(self, request):
+        """
+        Get inventory status report data
+        """
+        data = get_inventory_report()
+        return Response(data)
+    
+    @action(detail=False, methods=['get'])
+    def inventory_movement(self, request):
+        """
+        Get inventory movement report data
+        
+        Query params:
+        - start_date: Start date in YYYY-MM-DD format (default: 30 days ago)
+        - end_date: End date in YYYY-MM-DD format (default: today)
+        """
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        data = get_inventory_movement_report(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return Response(data)

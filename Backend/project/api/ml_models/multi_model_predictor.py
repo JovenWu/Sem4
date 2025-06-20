@@ -96,7 +96,7 @@ class MultiModelPredictor:
             demand_forecast = product_demand_forecasts.get(sale.product.product_id, 0.0)
             
             row = {
-                "Date": sale.transaction_date.date(),
+                "Date": sale.transaction.transaction_date.date(),
                 "Store ID": 1,
                 "Product ID": sale.product.product_id,
                 "Category": sale.product.category.name if sale.product.category else "Unknown",

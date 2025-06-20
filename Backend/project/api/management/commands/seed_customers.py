@@ -78,7 +78,7 @@ class Command(BaseCommand):
             self.stdout.write('Deleting existing customers...')
             Customer.objects.all().delete()
         else:
-            self.stdout.write('Skipping customers cleanup (--no-clean flag used)...')
+            self.stdout.write('Skipping customer cleanup (--no-clean flag used)...')
 
         self.stdout.write('Creating customers...')
         for data in CUSTOMER_SEED_DATA:
