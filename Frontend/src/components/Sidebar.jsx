@@ -12,6 +12,7 @@ import {
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
 import { GoGear, GoChevronRight } from "react-icons/go";
 import { MdStorefront } from "react-icons/md";
+import { TbReportMoney } from "react-icons/tb";
 import {
   Tooltip,
   TooltipContent,
@@ -273,7 +274,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <div className={`px-1.5 ${collapsed ? "items-center" : ""}`}>
             <SectionDivider />
-
             {/* No Category */}
             <SectionTitle title="" />
             {renderNavItem(
@@ -281,8 +281,7 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               "Dashboard",
               <LuLayoutDashboard size={iconSize} />,
               isActive("/app")
-            )}
-
+            )}{" "}
             {/* Sales */}
             <SectionTitle title="Sales" />
             {renderNavItem(
@@ -292,12 +291,17 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               isActive("/app/sales")
             )}
             {renderNavItem(
+              "/app/sales-history",
+              "Sales History",
+              <TbReportMoney size={iconSize} />,
+              isActive("/app/sales-history")
+            )}
+            {renderNavItem(
               "/app/customers",
               "Customers",
               <PiUserFocus size={iconSize} />,
               isActive("/app/customers")
             )}
-
             {/* Procurement */}
             <SectionTitle title="Procurement" />
             {renderNavItem(
@@ -312,7 +316,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               <MdStorefront size={iconSize} />,
               isActive("/app/suppliers")
             )}
-
             {/* Inventory */}
             <SectionTitle title="Inventory" />
             {renderNavItem(
@@ -327,7 +330,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               <GrCubes size={iconSize} />,
               isActive("/app/stock-levels")
             )}
-
             {/* Analytics */}
             <SectionTitle title="Analytics" />
             {renderNavItem(
@@ -342,7 +344,6 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
               <LuChartPie size={iconSize} />,
               isActive("/app/reports")
             )}
-
             {/* Bottom Section */}
             <SectionTitle title="Settings" />
             {renderToggleItem(

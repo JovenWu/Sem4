@@ -63,7 +63,7 @@ export const PoColumns = [
             products={products}
             isOpen={dialogOpen}
             setIsOpen={setDialogOpen}
-            poId={row.getValue("id")}
+            poId={row.getValue("po_id")}
           />
         </div>
       );
@@ -93,7 +93,7 @@ export const PoColumns = [
     cell: ({ row }) => {
       const status = row.getValue("status");
       const [isLoading, setIsLoading] = useState(false);
-      const id = row.getValue("id");
+      const id = row.getValue("po_id");
 
       const updateStatus = async (newStatus) => {
         if (status === newStatus) return;

@@ -96,11 +96,24 @@ class PurchaseOrderItems(models.Model):
     class Meta:
         verbose_name_plural = "Purchase Order Items"
 
-class SalesRecords(models.Model):
-    sales_record_id = models.CharField(primary_key=True, max_length=50, editable=False, default=uuid.uuid4)
+class SalesTransaction(models.Model):
+    transaction_id = models.CharField(primary_key=True, max_length=50, editable=False, default=uuid.uuid4)
     transaction_date = models.DateTimeField(null=False, blank=False)
-    product = models.ForeignKey(Products, on_delete=models.PROTECT, related_name='sales_records', to_field='product_id', null=False)
-    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_records', to_field='customer_id')
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_transactions', to_field='customer_id')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Transaction {self.transaction_id} on {self.transaction_date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        verbose_name_plural = "Sales Transactions"
+        ordering = ['-transaction_date']
+
+class SalesRecordItem(models.Model):
+    sales_item_id = models.CharField(primary_key=True, max_length=50, editable=False, default=uuid.uuid4)
+    transaction = models.ForeignKey(SalesTransaction, on_delete=models.CASCADE, related_name='items', to_field='transaction_id')
+    product = models.ForeignKey(Products, on_delete=models.PROTECT, related_name='sales_record_items', to_field='product_id', null=False)
     quantity_sold = models.IntegerField(null=False, blank=False, default=1)
     unit_price_at_sale = models.FloatField(null=False, blank=False, default=0.0)
     discount_applied = models.FloatField(default=0.0)
@@ -108,10 +121,8 @@ class SalesRecords(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-
     def __str__(self):
-        return f"Sale of {self.quantity_sold} x {self.product.product_name} on {self.transaction_date.strftime('%Y-%m-%d')}"
+        return f"{self.quantity_sold} x {self.product.product_name} in Transaction {self.transaction.transaction_id}"
 
     class Meta:
-        verbose_name_plural = "Sales Records"
-        ordering = ['-transaction_date']
+        verbose_name_plural = "Sales Record Items"

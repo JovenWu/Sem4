@@ -6,7 +6,7 @@ from pathlib import Path
 from .daily_model import daily_model
 from .weekly_model import weekly_model
 from .monthly_model import monthly_model
-from ..models import Products, SalesRecords
+from ..models import Products, SalesRecordItem
 from django.db.models import Sum, Count
 
 MODEL_DIR = Path(__file__).resolve().parent / "models"
@@ -43,10 +43,10 @@ class MultiModelPredictor:
         end_date = reference_date
         start_date = end_date - timedelta(days=days)
         
-        total_sales = SalesRecords.objects.filter(
+        total_sales = SalesRecordItem.objects.filter(
             product_id=product_id,
-            transaction_date__date__gte=start_date,
-            transaction_date__date__lt=end_date
+            transaction__transaction_date__date__gte=start_date,
+            transaction__transaction_date__date__lt=end_date
         ).aggregate(total=Sum('quantity_sold'))['total'] or 0
         
         moving_average = total_sales / days
@@ -71,11 +71,11 @@ class MultiModelPredictor:
         end_date = pd.Timestamp.now().normalize()
         start_date = end_date - pd.Timedelta(days=days_history)
         
-        sales_query = SalesRecords.objects.select_related("product", "product__category").filter(
+        sales_query = SalesRecordItem.objects.select_related("product", "transaction", "product__category").filter(
             product__product_id__in=product_ids,
-            transaction_date__date__gte=start_date.date(),
-            transaction_date__date__lte=end_date.date()
-        ).order_by("transaction_date")
+            transaction__transaction_date__date__gte=start_date.date(),
+            transaction__transaction_date__date__lte=end_date.date()
+        ).order_by("transaction__transaction_date")
         data_rows = []
         product_demand_forecasts = {}
         

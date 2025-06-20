@@ -242,18 +242,26 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
         data['items'] = PurchaseOrderItemsSerializer(items, many=True).data
         return data
 
-class SalesRecordsSerializer(serializers.ModelSerializer):
+class SalesRecordItemSerializer(serializers.ModelSerializer):
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset = Products.objects.all(),
-        source='product'
+        queryset=Products.objects.all(), source='product'
     )
+    class Meta:
+        model = SalesRecordItem
+        exclude = ('product', 'transaction')
+
+class SalesTransactionSerializer(serializers.ModelSerializer):
+    transaction_id = serializers.CharField(required=False)  # Make transaction_id optional for creation
+    items = SalesRecordItemSerializer(many=True)
     customer = serializers.SerializerMethodField(read_only=True)
     customer_id = serializers.PrimaryKeyRelatedField(
         queryset=Customer.objects.all(), source='customer', write_only=True, required=False
     )
     class Meta:
-        model = SalesRecords
-        exclude = ('product',)
+        model = SalesTransaction
+        fields = [
+            'transaction_id', 'transaction_date', 'customer', 'customer_id', 'items', 'created_at', 'updated_at'
+        ]
 
     def get_customer(self, instance):
         if instance.customer:
@@ -263,13 +271,27 @@ class SalesRecordsSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def create(self, validated_data):
+        from django.db import transaction
+        items_data = validated_data.pop('items', [])
+        with transaction.atomic():
+            sales_transaction = SalesTransaction.objects.create(**validated_data)
+            for item in items_data:
+                product = Products.objects.get(product_id=item['product'].product_id)
+                SalesRecordItem.objects.create(
+                    transaction=sales_transaction,
+                    product=product,
+                    quantity_sold=item['quantity_sold'],
+                    unit_price_at_sale=item['unit_price_at_sale'],
+                    discount_applied=item.get('discount_applied', 0),
+                    promotion_marker=item.get('promotion_marker', False),
+                )
+            return sales_transaction
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['product_id'] = instance.product.product_id
-        if instance.customer:
-            data['customer_id'] = instance.customer.customer_id
-        else:
-            data['customer_id'] = None
+        items = SalesRecordItem.objects.filter(transaction=instance)
+        data['items'] = SalesRecordItemSerializer(items, many=True).data
         return data
 
 class DashboardSummarySerializer(serializers.Serializer):

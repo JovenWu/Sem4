@@ -4,7 +4,8 @@ import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import "./index.css";
 import PurchaseOrder from "./pages/PurchaseOrder";
-import SalesOrder from "./pages/SalesOrder";
+import SalesHistory from "./pages/SalesHistory";
+import Sales from "./pages/Sales";
 import Employees from "./pages/Employees";
 import Profile from "./pages/Profile";
 import LandingPage from "./pages/LandingPage";
@@ -21,7 +22,8 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="purchase" element={<PurchaseOrder />} />
-        <Route path="sales" element={<SalesOrder />} />
+        <Route path="sales-history" element={<SalesHistory />} />
+        <Route path="sales" element={<Sales />} />
         <Route path="employees" element={<Employees />} />
         <Route path="profile" element={<Profile />} />
         <Route path="suppliers" element={<Suppliers />} />

@@ -362,51 +362,6 @@ class PurchaseOrdersViewSet(viewsets.ModelViewSet):
             return PurchaseOrderListSerializer
         return PurchaseOrderDetailSerializer
     
-@method_decorator(csrf_exempt, name='dispatch')
-class SalesRecordsViewSet(viewsets.ModelViewSet):
-    queryset = SalesRecords.objects.select_related('product', 'product__category').all()
-    serializer_class = SalesRecordsSerializer
-    pagination_class = StandardResultsSetPagination
-    permission_classes = [AllowAny]
-    filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
-    search_fields = ['product__product_name', 'product__product_id']
-    ordering_fields = ['transaction_date', 'quantity_sold', 'unit_price_at_sale']
-    ordering = ['-transaction_date']
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        product = serializer.validated_data['product']
-        quantity_sold = serializer.validated_data['quantity_sold']
-        customer = serializer.validated_data.get('customer', None)
-
-        with transaction.atomic():
-            product.refresh_from_db()
-            current_stock = product.current_stock
-
-            if current_stock < quantity_sold:
-                return Response({'error': 'Insufficient stock'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Create SalesRecord with customer
-            sales_record = SalesRecords.objects.create(
-                transaction_date=serializer.validated_data['transaction_date'],
-                product=product,
-                customer=customer,
-                quantity_sold=quantity_sold,
-                unit_price_at_sale=serializer.validated_data['unit_price_at_sale'],
-                discount_applied=serializer.validated_data.get('discount_applied', 0),
-                promotion_marker=serializer.validated_data.get('promotion_marker', False),
-            )
-
-            # Decrement stock
-            product.current_stock = current_stock - quantity_sold
-            product.save()
-
-            # Return response
-            output_serializer = self.get_serializer(sales_record)
-            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-
 @api_view(['GET'])
 def dashboard_summary(request):
     """
@@ -443,15 +398,15 @@ def dashboard_summary(request):
         return Response(cached_data)
     
     try:
-        sales_aggregation = SalesRecords.objects.filter(
+        sales_aggregation = SalesTransaction.objects.filter(
             transaction_date__date__gte=start_date,
             transaction_date__date__lte=end_date
         ).aggregate(
-            total_sales_volume=Sum('quantity_sold'),
-            total_revenue=Sum(F('quantity_sold') * F('unit_price_at_sale')),
-            total_discount_given=Sum('discount_applied'),
-            total_transactions=Count('sales_record_id'),
-            average_transaction_value=Avg(F('quantity_sold') * F('unit_price_at_sale'))
+            total_sales_volume=Sum('items__quantity_sold'),
+            total_revenue=Sum(F('items__quantity_sold') * F('items__unit_price_at_sale')),
+            total_discount_given=Sum('items__discount_applied'),
+            total_transactions=Count('transaction_id'),
+            average_transaction_value=Avg(F('items__quantity_sold') * F('items__unit_price_at_sale'))
         )
         
         total_sales_volume = sales_aggregation['total_sales_volume'] or 0
@@ -474,16 +429,16 @@ def dashboard_summary(request):
         }
         
         if include_monthly_chart:
-            monthly_data = SalesRecords.objects.filter(
+            monthly_data = SalesTransaction.objects.filter(
                 transaction_date__date__gte=start_date,
                 transaction_date__date__lte=end_date
             ).annotate(
                 month=Extract('transaction_date', 'month')
             ).values('month').annotate(
-                monthly_revenue=Sum(F('quantity_sold') * F('unit_price_at_sale')),
-                monthly_sales_volume=Sum('quantity_sold'),
-                monthly_transactions=Count('sales_record_id'),
-                monthly_discount=Sum('discount_applied')
+                monthly_revenue=Sum(F('items__quantity_sold') * F('items__unit_price_at_sale')),
+                monthly_sales_volume=Sum('items__quantity_sold'),
+                monthly_transactions=Count('transaction_id'),
+                monthly_discount=Sum('items__discount_applied')
             ).order_by('month')
             
             monthly_chart_data = []
@@ -511,22 +466,22 @@ def dashboard_summary(request):
             summary_data['monthly_chart_data'] = monthly_chart_data
         
         if include_breakdown:
-            top_products = SalesRecords.objects.filter(
+            top_products = SalesTransaction.objects.filter(
                 transaction_date__date__gte=start_date,
                 transaction_date__date__lte=end_date
             ).values(
-                'product__product_id',
-                'product__product_name'
+                'items__product__product_id',
+                'items__product__product_name'
             ).annotate(
-                product_revenue=Sum(F('quantity_sold') * F('unit_price_at_sale')),
-                product_sales_volume=Sum('quantity_sold'),
-                product_transactions=Count('sales_record_id')
+                product_revenue=Sum(F('items__quantity_sold') * F('items__unit_price_at_sale')),
+                product_sales_volume=Sum('items__quantity_sold'),
+                product_transactions=Count('transaction_id')
             ).order_by('-product_revenue')[:10]
             
             summary_data['top_products'] = [
                 {
-                    'product_id': item['product__product_id'],
-                    'product_name': item['product__product_name'],
+                    'product_id': item['items__product__product_id'],
+                    'product_name': item['items__product__product_name'],
                     'revenue': round(float(item['product_revenue']), 2),
                     'sales_volume': item['product_sales_volume'],
                     'transactions': item['product_transactions']
@@ -534,19 +489,19 @@ def dashboard_summary(request):
                 for item in top_products
             ]
             
-            category_breakdown = SalesRecords.objects.filter(
+            category_breakdown = SalesTransaction.objects.filter(
                 transaction_date__date__gte=start_date,
                 transaction_date__date__lte=end_date
             ).values(
-                'product__category__name'
+                'items__product__category__name'
             ).annotate(
-                category_revenue=Sum(F('quantity_sold') * F('unit_price_at_sale')),
-                category_sales_volume=Sum('quantity_sold'),
-                category_transactions=Count('sales_record_id')
+                category_revenue=Sum(F('items__quantity_sold') * F('items__unit_price_at_sale')),
+                category_sales_volume=Sum('items__quantity_sold'),
+                category_transactions=Count('transaction_id')
             ).order_by('-category_revenue')
             
             summary_data['category_breakdown'] = {
-                item['product__category__name'] or 'Uncategorized': {
+                item['items__product__category__name'] or 'Uncategorized': {
                     'revenue': round(float(item['category_revenue']), 2),
                     'sales_volume': item['category_sales_volume'],
                     'transactions': item['category_transactions']
@@ -728,3 +683,29 @@ class ProductStockInfoAPIView(APIView):
                 'on_order': on_order,
             })
         return paginator.get_paginated_response(data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SalesTransactionViewSet(viewsets.ModelViewSet):
+    queryset = SalesTransaction.objects.all()
+    serializer_class = SalesTransactionSerializer
+    pagination_class = StandardResultsSetPagination
+    permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
+    search_fields = ['transaction_id', 'customer__name']
+    ordering_fields = ['transaction_date']
+    ordering = ['-transaction_date']
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            sales_transaction = serializer.save()
+            # Decrement stock for each item
+            for item in sales_transaction.items.all():
+                product = item.product
+                product.refresh_from_db()
+                if product.current_stock < item.quantity_sold:
+                    raise serializers.ValidationError({'error': f'Insufficient stock for {product.product_name}'})
+                product.current_stock -= item.quantity_sold
+                product.save()
+        return Response(self.get_serializer(sales_transaction).data, status=status.HTTP_201_CREATED)

@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from django.db.models import Q, Sum
-from ..models import Products, SalesRecords, Categories
+from ..models import Products, SalesRecordItem, Categories
 import os
 from pathlib import Path
 
@@ -25,10 +25,10 @@ class DataPreparation:
         if not start_date:
             start_date = end_date - timedelta(days=365)
             
-        sales_query = SalesRecords.objects.select_related('product', 'product__category').filter(
-            transaction_date__date__gte=start_date,
-            transaction_date__date__lte=end_date
-        ).order_by('transaction_date')
+        sales_query = SalesRecordItem.objects.select_related('product', 'product__category', 'transaction').filter(
+            transaction__transaction_date__date__gte=start_date,
+            transaction__transaction_date__date__lte=end_date
+        ).order_by('transaction__transaction_date')
         data_rows = []
         
         from .multi_model_predictor import MultiModelPredictor
@@ -126,7 +126,7 @@ class DataPreparation:
         data_rows = []
         current_date = datetime.now().date()
         for product in products:
-            latest_sale = SalesRecords.objects.filter(product=product).order_by('-transaction_date').first()
+            latest_sale = SalesRecordItem.objects.filter(product=product).order_by('-transaction_date').first()
             
             from .multi_model_predictor import MultiModelPredictor
             predictor = MultiModelPredictor()

@@ -63,13 +63,6 @@ const productSchema = z.object({
   unit_cost_price: z.number().positive({ message: "Price must be positive" }),
 });
 
-const supplierSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  contact_person: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  address: z.string().optional(),
-});
 
 const formSchema = z.object({
   po_id: z.string().min(1, { message: "PO ID is required" }), // Add po_id to schema
