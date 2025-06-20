@@ -22,7 +22,6 @@ function InventoryTable({ setForecastDays, initialForecastDays }) {
   const {
     products,
     loading,
-    error,
     pagination,
     pageCount,
     totalCount,
@@ -48,18 +47,6 @@ function InventoryTable({ setForecastDays, initialForecastDays }) {
     setLocalForecastDays(days);
     setForecastDays(days);
   };
-
-  if (error) {
-    return (
-      <div className="py-10 text-center">
-        <p className="text-red-500 mb-2">Error loading product data: {error}</p>
-        <p className="text-sm text-gray-600 mb-4">
-          Please check your network connection and try again.
-        </p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -123,6 +110,44 @@ function InventoryTable({ setForecastDays, initialForecastDays }) {
 const Inventory = () => {
   const { toggleSidebar, isMobile } = useOutletContext();
   const [forecastDays, setForecastDays] = useState("weekly");
+  const {
+    products,
+    loading,
+    error,
+    pagination,
+    pageCount,
+    totalCount,
+    globalFilter,
+    sorting,
+    handlePaginationChange,
+    handleGlobalFilterChange,
+    handleSortingChange,
+  } = useProductData?.() || {};
+
+  if (error) {
+    return (
+      <PageLayout
+        title="Inventory"
+        toggleSidebar={toggleSidebar}
+        isMobile={isMobile}
+      >
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-6">
+            <h2 className="text-2xl font-bold text-red-500 mb-2">
+              Error Loading Inventory
+            </h2>
+            <p className="mb-4">{error}</p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout

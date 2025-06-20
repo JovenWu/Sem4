@@ -43,32 +43,34 @@ class ProductsSerializer(serializers.ModelSerializer):
                 ).aggregate(
                     total_pending=models.Sum('ordered_quantity')
                 )['total_pending'] or 0
-                
                 predicted_units = forecast_info.get('total_predicted_units', 0)
                 current_stock = instance.current_stock
                 total_available = current_stock
-                
                 safety_stock_multiplier = 1.2
                 overstock_multiplier = 2.0
-                
-                required_stock = predicted_units * safety_stock_multiplier
-                overstock_threshold = predicted_units * overstock_multiplier
-                
-                if total_available >= overstock_threshold:
-                    status = "Overstock"
-                elif total_available < required_stock:
-                    status = "Understock"
+                required_stock = None
+                overstock_threshold = None
+                if predicted_units == "Not Enough Data":
+                    status = "Error"
+                    required_stock = None
+                    overstock_threshold = None
                 else:
-                    status = "Optimal Stock"
-                
+                    required_stock = float(predicted_units) * safety_stock_multiplier
+                    overstock_threshold = float(predicted_units) * overstock_multiplier
+                    if total_available >= overstock_threshold:
+                        status = "Overstock"
+                    elif total_available < required_stock:
+                        status = "Understock"
+                    else:
+                        status = "Optimal Stock"
                 data['stock_status'] = {
                     'status': status,
                     'current_stock': current_stock,
                     'pending_orders': pending_orders,
                     'total_available': total_available,
                     'predicted_sales': predicted_units,
-                    'required_stock': round(required_stock, 2),
-                    'overstock_threshold': round(overstock_threshold, 2)
+                    'required_stock': round(required_stock, 2) if required_stock is not None else None,
+                    'overstock_threshold': round(overstock_threshold, 2) if overstock_threshold is not None else None
                 }
         
         return data

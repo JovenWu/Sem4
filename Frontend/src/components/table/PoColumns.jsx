@@ -92,45 +92,6 @@ export const PoColumns = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status");
-      const [isLoading, setIsLoading] = useState(false);
-      const id = row.getValue("po_id");
-
-      const updateStatus = async (newStatus) => {
-        if (status === newStatus) return;
-
-        setIsLoading(true);
-        try {
-          const response = await fetch(`/api/purchase-order/${id}/`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              status: newStatus,
-              ...(newStatus === "Received" && {
-                items_received: true,
-              }),
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || `Error: ${response.status}`);
-          }
-
-          toast.success(`Status updated to ${newStatus}`, {
-            description: `Purchase order ${id} status has been updated.`,
-          });
-        } catch (error) {
-          console.error("Failed to update status:", error);
-          toast.error("Failed to update status", {
-            description: error.message || "Please try again later.",
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
       if (status === "Received") {
         return (
           <Badge
@@ -141,45 +102,19 @@ export const PoColumns = [
           </Badge>
         );
       }
-
-      return (
-        <Select
-          defaultValue={status}
-          onValueChange={updateStatus}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="p-0 shadow-none border-0">
-            <SelectValue placeholder="Status">
-              {status === "Ordered" && (
-                <Badge
-                  variant="outline"
-                  className="bg-blue-50 text-blue-700 border-blue-200"
-                >
-                  Ordered
-                </Badge>
-              )}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Ordered">
-              <Badge
-                variant="outline"
-                className="bg-blue-50 text-blue-700 border-blue-200"
-              >
-                Ordered
-              </Badge>
-            </SelectItem>
-            <SelectItem value="Received">
-              <Badge
-                variant="outline"
-                className="bg-green-50 text-green-700 border-green-200"
-              >
-                Received
-              </Badge>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      );
+      // Only show badge for Ordered, no dropdown
+      if (status === "Ordered") {
+        return (
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 border-blue-200"
+          >
+            Ordered
+          </Badge>
+        );
+      }
+      // fallback for unknown status
+      return <Badge variant="outline">{status}</Badge>;
     },
   },
 ];

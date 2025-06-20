@@ -13,6 +13,11 @@ const ForecastCell = ({ value }) => {
     );
   }
 
+  // Show 'Not Enough Data' if value is null or undefined
+  if (value == null) {
+    return <div className="text-red-600 font-medium">Not Enough Data</div>;
+  }
+
   if (value && value.includes("units")) {
     return <div className="text-blue-600 font-medium">{value}</div>;
   }
@@ -23,18 +28,24 @@ const ForecastCell = ({ value }) => {
 const StatusCell = ({ value }) => {
   let variant = "outline";
 
-  switch (value) {
-    case "Overstock":
-      variant = "bg-red-50 text-red-700 border-red-200";
-      break;
-    case "Understock":
-      variant = "bg-yellow-50 text-yellow-700 border-yellow-200";
-      break;
-    case "Optimal Stock":
-      variant = "bg-green-50 text-green-700 border-green-200";
-      break;
-    default:
-      variant = "bg-gray-50 text-gray-700 border-gray-200";
+  // Show error/red if status is missing or null
+  if (!value || value === "Error") {
+    variant = "bg-red-50 text-red-700 border-red-200";
+    value = "Error";
+  } else {
+    switch (value) {
+      case "Overstock":
+        variant = "bg-red-50 text-red-700 border-red-200";
+        break;
+      case "Understock":
+        variant = "bg-yellow-50 text-yellow-700 border-yellow-200";
+        break;
+      case "Optimal Stock":
+        variant = "bg-green-50 text-green-700 border-green-200";
+        break;
+      default:
+        variant = "bg-gray-50 text-gray-700 border-gray-200";
+    }
   }
 
   return <Badge className={variant}>{value}</Badge>;
@@ -48,14 +59,6 @@ export const ProductColumns = [
   {
     accessorKey: "category",
     header: "Category",
-  },
-  {
-    accessorKey: "unitPrice",
-    header: "Unit Price",
-  },
-  {
-    accessorKey: "competitorPrice",
-    header: "Competitor Price",
   },
   {
     accessorKey: "currentStock",

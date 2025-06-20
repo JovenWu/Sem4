@@ -224,35 +224,42 @@ export function ProductDataProvider({ children, forecastDays = null }) {
         }
 
         // Transform the data with proper null checks
-        const transformedData = results.map((product) => ({
-          productName: product?.product_name || "Unknown Product",
-          productId: product?.product_id || "N/A",
-          category: product?.category || "Uncategorized",
-          unitPrice: `$${(product?.unit_price || 0).toFixed(2)}`,
-          competitorPrice: `$${(product?.competitor_price || 0).toFixed(2)}`,
-          currentStock: (product?.current_stock || 0).toString(),
-          status:
-            product?.stock_status?.status ||
-            getStockStatus(product?.current_stock || 0),
-          forecast: product?.forecast
-            ? `${product.forecast.total_predicted_units || 0} units`
-            : forecastDays
-            ? "Loading forecast..."
-            : "No forecast selected",
-          // Additional forecast data with null checks
-          pendingOrders: product?.stock_status?.pending_orders || 0,
-          totalAvailable:
-            product?.stock_status?.total_available ||
-            product?.current_stock ||
-            0,
-          predictedSales: product?.stock_status?.predicted_sales || "N/A",
-          requiredStock: product?.stock_status?.required_stock
-            ? product.stock_status.required_stock.toFixed(1)
-            : "N/A",
-          overstockThreshold: product?.stock_status?.overstock_threshold
-            ? product.stock_status.overstock_threshold.toFixed(1)
-            : "N/A",
-        }));
+        const transformedData = results.map((product) => {
+          // Determine if this product has no forecast and forecast is requested
+          const isNoForecast = forecastDays && !product?.forecast;
+          return {
+            productName: product?.product_name || "Unknown Product",
+            productId: product?.product_id || "N/A",
+            category: product?.category || "Uncategorized",
+            unitPrice: `$${(product?.unit_price || 0).toFixed(2)}`,
+            competitorPrice: `$${(product?.competitor_price || 0).toFixed(2)}`,
+            currentStock: (product?.current_stock || 0).toString(),
+            status: isNoForecast
+              ? "Error"
+              : product?.stock_status?.status ||
+                getStockStatus(product?.current_stock || 0),
+            forecast: isNoForecast
+              ? "Not Enough Data"
+              : product?.forecast
+              ? `${product.forecast.total_predicted_units || 0} units`
+              : forecastDays
+              ? "Loading forecast..."
+              : "No forecast selected",
+            // Additional forecast data with null checks
+            pendingOrders: product?.stock_status?.pending_orders || 0,
+            totalAvailable:
+              product?.stock_status?.total_available ||
+              product?.current_stock ||
+              0,
+            predictedSales: product?.stock_status?.predicted_sales || "N/A",
+            requiredStock: product?.stock_status?.required_stock
+              ? product.stock_status.required_stock.toFixed(1)
+              : "N/A",
+            overstockThreshold: product?.stock_status?.overstock_threshold
+              ? product.stock_status.overstock_threshold.toFixed(1)
+              : "N/A",
+          };
+        });
 
         if (useClientSidePagination) {
           // Store all products for client-side operations

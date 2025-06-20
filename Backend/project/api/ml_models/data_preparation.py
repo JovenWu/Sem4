@@ -44,13 +44,13 @@ class DataPreparation:
             demand_forecast = product_demand_forecasts.get(sale.product.product_id, 0.0)
             
             row = {
-                'Date': sale.transaction_date.date(),
+                'Date': sale.transaction.transaction_date.date(),
                 'Product_ID': sale.product.product_id,
                 'Category': sale.product.category.name if sale.product.category else 'Unknown',
                 'Inventory_Level': sale.product.current_stock,
                 'Competitor_Pricing': sale.product.competitor_price or 0.0,
                 'Units_Sold': sale.quantity_sold,
-                'Units_Ordered': self._get_units_ordered(sale.product, sale.transaction_date.date()),
+                'Units_Ordered': self._get_units_ordered(sale.product, sale.transaction.transaction_date.date()),
                 'Price': sale.unit_price_at_sale,
                 'Discount': sale.discount_applied,
                 'Holiday/Promotion': 1 if sale.promotion_marker else 0,
@@ -126,7 +126,7 @@ class DataPreparation:
         data_rows = []
         current_date = datetime.now().date()
         for product in products:
-            latest_sale = SalesRecordItem.objects.filter(product=product).order_by('-transaction_date').first()
+            latest_sale = SalesRecordItem.objects.filter(product=product).order_by('-transaction__transaction_date').first()
             
             from .multi_model_predictor import MultiModelPredictor
             predictor = MultiModelPredictor()
