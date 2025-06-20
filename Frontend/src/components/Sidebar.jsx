@@ -3,9 +3,15 @@ import Welcome from "./Welcome";
 import { Title, NavItems } from "./NavItems";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { GrCubes } from "react-icons/gr";
-import { LuLayoutDashboard, LuShoppingCart } from "react-icons/lu";
+import {
+  LuLayoutDashboard,
+  LuShoppingCart,
+  LuChartLine,
+  LuChartPie,
+} from "react-icons/lu";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
 import { GoGear, GoChevronRight } from "react-icons/go";
+import { MdStorefront } from "react-icons/md";
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +31,7 @@ import {
 import { PiUserFocus, PiWrench } from "react-icons/pi";
 import { Separator } from "./ui/separator";
 import { FaSignOutAlt } from "react-icons/fa";
+import { BsBoxSeam } from "react-icons/bs";
 
 const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
   const [isToggleOpen, setIsToggleOpen] = useState({
@@ -302,7 +309,7 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             {renderNavItem(
               "/app/suppliers",
               "Suppliers",
-              <GrCubes size={iconSize} />,
+              <MdStorefront size={iconSize} />,
               isActive("/app/suppliers")
             )}
 
@@ -311,7 +318,7 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             {renderNavItem(
               "/app/products",
               "Products",
-              <GrCubes size={iconSize} />,
+              <BsBoxSeam size={iconSize} />,
               isActive("/app/products")
             )}
             {renderNavItem(
@@ -326,13 +333,13 @@ const Sidebar = ({ isCollapsed, isMobile, onCloseMobile }) => {
             {renderNavItem(
               "/app/inventory",
               "Forecasting",
-              <GrCubes size={iconSize} />,
+              <LuChartLine size={iconSize} />,
               isActive("/app/inventory")
             )}
             {renderNavItem(
               "/app/reports",
               "Reports",
-              <GoGear size={iconSize} />,
+              <LuChartPie size={iconSize} />,
               isActive("/app/reports")
             )}
 

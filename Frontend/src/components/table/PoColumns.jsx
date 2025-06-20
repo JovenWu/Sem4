@@ -1,9 +1,4 @@
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { format } from "date-fns";
 import {
   Select,
@@ -16,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PurchaseOrderDialog } from "@/components/PurchaseOrderDialog";
 
 export const PoColumns = [
   {
-    accessorKey: "id",
+    accessorKey: "po_id", // Use po_id instead of id
     header: "PO ID",
-    cell: ({ row }) => <div>{row.getValue("id")}</div>,
+    cell: ({ row }) => <div>{row.getValue("po_id")}</div>,
   },
   {
     accessorKey: "supplierName",
@@ -33,10 +29,9 @@ export const PoColumns = [
     header: "Products",
     cell: ({ row }) => {
       const products = row.getValue("products");
+      const [dialogOpen, setDialogOpen] = useState(false);
       if (!products || products.length === 0) return <div>No products</div>;
-
       const firstProduct = products[0];
-
       if (products.length === 1) {
         return (
           <div>
@@ -47,7 +42,6 @@ export const PoColumns = [
           </div>
         );
       }
-
       return (
         <div className="flex items-center space-x-2">
           <div>
@@ -56,49 +50,21 @@ export const PoColumns = [
               {firstProduct.quantity} × ${firstProduct.price}
             </div>
           </div>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <FiMoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">View more products</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0">
-              <div className="p-4">
-                <div className="font-medium mb-2">
-                  All Products ({products.length})
-                </div>
-                <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
-                  {products.map((product, index) => (
-                    <div
-                      key={index}
-                      className="border-b pb-2 last:border-b-0 last:pb-0"
-                    >
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm">
-                        Quantity: {product.quantity}
-                      </div>
-                      <div className="text-sm">Price: ${product.price}</div>
-                      <div className="text-sm font-medium">
-                        Subtotal: $
-                        {(product.quantity * product.price).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 pt-3 border-t font-medium text-right">
-                  Total: $
-                  {products
-                    .reduce(
-                      (sum, product) => sum + product.quantity * product.price,
-                      0
-                    )
-                    .toFixed(2)}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => setDialogOpen(true)}
+          >
+            <FiMoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">View all products</span>
+          </Button>
+          <PurchaseOrderDialog
+            products={products}
+            isOpen={dialogOpen}
+            setIsOpen={setDialogOpen}
+            poId={row.getValue("id")}
+          />
         </div>
       );
     },

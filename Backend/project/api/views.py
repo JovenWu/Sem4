@@ -88,7 +88,6 @@ class ProductsViewSet(viewsets.ModelViewSet):
     queryset = Products.objects.select_related('category').all()
     serializer_class = ProductsSerializer
     lookup_field = 'product_id'
-    allowed_methods = ['GET']
     permission_classes = [AllowAny]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
@@ -691,3 +690,41 @@ class CustomerViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['name', 'customer_id']
     ordering = ['name']
+
+class ProductStockInfoAPIView(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request):
+        from .models import Products, PurchaseOrderItems, PurchaseOrders
+        from rest_framework.pagination import PageNumberPagination
+        from django.db.models import Q
+        # Filtering
+        search = request.GET.get('search', '').strip()
+        queryset = Products.objects.select_related('category').all()
+        if search:
+            queryset = queryset.filter(
+                Q(product_name__icontains=search) |
+                Q(category__name__icontains=search)
+            )
+        # Ordering
+        ordering = request.GET.get('ordering')
+        if ordering:
+            ordering_fields = [f.strip() for f in ordering.split(',')]
+            queryset = queryset.order_by(*ordering_fields)
+        # Pagination
+        paginator = PageNumberPagination()
+        paginator.page_size_query_param = 'page_size'
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+        # Data
+        data = []
+        for product in paginated_qs:
+            on_order = PurchaseOrderItems.objects.filter(
+                product=product,
+                purchase_order__status='Ordered'
+            ).aggregate(total=Sum('ordered_quantity'))['total'] or 0
+            data.append({
+                'product_name': product.product_name,
+                'category': product.category.name if product.category else None,
+                'current_stock': product.current_stock,
+                'on_order': on_order,
+            })
+        return paginator.get_paginated_response(data)

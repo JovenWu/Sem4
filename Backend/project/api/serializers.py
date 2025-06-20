@@ -88,6 +88,7 @@ class PurchaseOrderItemsSerializer(serializers.ModelSerializer):
         return data
 
 class PurchaseOrdersSerializer(serializers.ModelSerializer):
+    po_id = serializers.CharField(required=True)  # Ensure po_id is required and writable
     items = PurchaseOrderItemsSerializer(many=True)
     supplier = SupplierShortSerializer(read_only=True)
     supplier_id = serializers.PrimaryKeyRelatedField(
@@ -154,6 +155,7 @@ class PurchaseOrdersSerializer(serializers.ModelSerializer):
         return data
 
 class PurchaseOrderListSerializer(serializers.ModelSerializer):
+    po_id = serializers.CharField(required=True)  # Ensure po_id is writable for list serializer too
     items = PurchaseOrderItemsSerializer(many=True, read_only=True)
     supplier = SupplierShortSerializer(read_only=True)
     supplier_id = serializers.PrimaryKeyRelatedField(

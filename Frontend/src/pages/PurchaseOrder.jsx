@@ -72,6 +72,7 @@ const supplierSchema = z.object({
 });
 
 const formSchema = z.object({
+  po_id: z.string().min(1, { message: "PO ID is required" }), // Add po_id to schema
   supplier_id: z.string().min(1, { message: "Supplier is required" }),
   items: z
     .array(productSchema)
@@ -109,6 +110,7 @@ const PurchaseOrder = () => {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      po_id: "",
       supplier_id: "",
       items: [{ product: "", ordered_quantity: 1, unit_cost_price: 0 }],
       order_date: undefined,
@@ -272,6 +274,7 @@ const PurchaseOrder = () => {
         .split("T")[0];
 
       const requestPayload = {
+        po_id: data.po_id, // Add po_id to payload
         supplier_id: data.supplier_id,
         order_date: formattedOrderDate,
         expected_delivery_date: formattedDeliveryDate,
@@ -337,8 +340,8 @@ const PurchaseOrder = () => {
     });
 
     return {
-      id: po.po_id,
-      supplierName: po.supplier_name,
+      po_id: po.po_id,
+      supplierName: po.supplier?.name || "",
       orderDate: po.order_date,
       expectedDeliveryDate: po.expected_delivery_date,
       status: po.status,
@@ -392,6 +395,19 @@ const PurchaseOrder = () => {
                     onSubmit={form.handleSubmit(onSubmit)}
                     className="space-y-4 py-6"
                   >
+                    <FormField
+                      control={form.control}
+                      name="po_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Purchase Order ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="PO-0001" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="supplier_id"

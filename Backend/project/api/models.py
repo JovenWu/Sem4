@@ -60,7 +60,7 @@ class Customer(models.Model):
         verbose_name_plural = "Customers"
 
 class PurchaseOrders(models.Model):
-    po_id = models.CharField(primary_key=True, max_length=50, editable=False, default=uuid.uuid4)
+    po_id = models.CharField(primary_key=True, max_length=50, editable=True)  # Removed default=uuid.uuid4, editable=True
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_orders', to_field='supplier_id')
     order_date = models.DateField(null=False, blank=False)
     expected_delivery_date = models.DateField(null=True, blank=True)

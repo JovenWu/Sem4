@@ -11,6 +11,8 @@ import LandingPage from "./pages/LandingPage";
 import LoginForm from "./pages/LoginForm";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
+import Products from "./pages/Products";
+import StockLevel from "./pages/StockLevel";
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="profile" element={<Profile />} />
         <Route path="suppliers" element={<Suppliers />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="products" element={<Products />} />
+        <Route path="stock-levels" element={<StockLevel />} />
       </Route>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginForm />} />
