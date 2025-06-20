@@ -380,6 +380,7 @@ class SalesRecordsViewSet(viewsets.ModelViewSet):
 
         product = serializer.validated_data['product']
         quantity_sold = serializer.validated_data['quantity_sold']
+        customer = serializer.validated_data.get('customer', None)
 
         with transaction.atomic():
             product.refresh_from_db()
@@ -388,15 +389,15 @@ class SalesRecordsViewSet(viewsets.ModelViewSet):
             if current_stock < quantity_sold:
                 return Response({'error': 'Insufficient stock'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create SalesRecord
+            # Create SalesRecord with customer
             sales_record = SalesRecords.objects.create(
                 transaction_date=serializer.validated_data['transaction_date'],
                 product=product,
+                customer=customer,
                 quantity_sold=quantity_sold,
                 unit_price_at_sale=serializer.validated_data['unit_price_at_sale'],
                 discount_applied=serializer.validated_data.get('discount_applied', 0),
                 promotion_marker=serializer.validated_data.get('promotion_marker', False),
-                # inventory_snapshot_before_sale=current_stock,
             )
 
             # Decrement stock
@@ -423,7 +424,6 @@ def dashboard_summary(request):
     include_breakdown = request.GET.get('include_breakdown', 'false').lower() == 'true'
     include_monthly_chart = request.GET.get('include_monthly_chart', 'true').lower() == 'true'
     
-    # Set default year
     if not year:
         year = timezone.now().year
     else:
@@ -433,21 +433,17 @@ def dashboard_summary(request):
             return Response({'error': 'Invalid year format. Use YYYY'}, 
                           status=status.HTTP_400_BAD_REQUEST)
     
-    # Calculate date range for the year
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
     
-    # Create cache key based on parameters
     cache_key = f"dashboard_summary_year_{year}_{include_breakdown}_{include_monthly_chart}"
     cache_key = hashlib.md5(cache_key.encode()).hexdigest()
     
-    # Try to get from cache first (cache for 10 minutes for yearly data)
     cached_data = cache.get(cache_key)
     if cached_data:
         return Response(cached_data)
     
     try:
-        # Single query to get all main metrics for the year
         sales_aggregation = SalesRecords.objects.filter(
             transaction_date__date__gte=start_date,
             transaction_date__date__lte=end_date
@@ -459,17 +455,14 @@ def dashboard_summary(request):
             average_transaction_value=Avg(F('quantity_sold') * F('unit_price_at_sale'))
         )
         
-        # Handle None values from aggregation
         total_sales_volume = sales_aggregation['total_sales_volume'] or 0
         total_revenue = float(sales_aggregation['total_revenue'] or 0)
         total_discount_given = float(sales_aggregation['total_discount_given'] or 0)
         total_transactions = sales_aggregation['total_transactions'] or 0
         average_transaction_value = float(sales_aggregation['average_transaction_value'] or 0)
         
-        # Calculate net revenue
         net_revenue = total_revenue - total_discount_given
         
-        # Prepare base response data
         summary_data = {
             'total_sales_volume': total_sales_volume,
             'total_revenue': round(total_revenue, 2),
@@ -481,7 +474,6 @@ def dashboard_summary(request):
             'year': year
         }
         
-        # Add monthly chart data
         if include_monthly_chart:
             monthly_data = SalesRecords.objects.filter(
                 transaction_date__date__gte=start_date,
@@ -495,7 +487,6 @@ def dashboard_summary(request):
                 monthly_discount=Sum('discount_applied')
             ).order_by('month')
             
-            # Create complete 12-month data (fill missing months with zeros)
             monthly_chart_data = []
             monthly_dict = {item['month']: item for item in monthly_data}
             
@@ -520,9 +511,7 @@ def dashboard_summary(request):
             
             summary_data['monthly_chart_data'] = monthly_chart_data
         
-        # Add detailed breakdowns if requested
         if include_breakdown:
-            # Top 10 products by revenue for the year
             top_products = SalesRecords.objects.filter(
                 transaction_date__date__gte=start_date,
                 transaction_date__date__lte=end_date
@@ -546,7 +535,6 @@ def dashboard_summary(request):
                 for item in top_products
             ]
             
-            # Category breakdown for the year
             category_breakdown = SalesRecords.objects.filter(
                 transaction_date__date__gte=start_date,
                 transaction_date__date__lte=end_date
@@ -567,7 +555,6 @@ def dashboard_summary(request):
                 for item in category_breakdown
             }
             
-            # Monthly averages for the year
             months_in_year = 12
             summary_data['monthly_averages'] = {
                 'avg_monthly_revenue': round(total_revenue / months_in_year, 2),
@@ -575,7 +562,6 @@ def dashboard_summary(request):
                 'avg_monthly_transactions': round(total_transactions / months_in_year, 2)
             }
         
-        # Cache the result for 10 minutes (yearly data changes less frequently)
         cache.set(cache_key, summary_data, 600)
         
         return Response(summary_data)
@@ -681,3 +667,27 @@ class EmployeeDetailView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         user.delete()
         return Response({"success": "User deleted"})
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SupplierViewSet(viewsets.ModelViewSet):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
+    lookup_field = 'supplier_id'
+    permission_classes = [AllowAny]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
+    search_fields = ['name', 'contact_person', 'email', 'phone']
+    ordering_fields = ['name', 'supplier_id']
+    ordering = ['name']
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CustomerViewSet(viewsets.ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+    lookup_field = 'customer_id'
+    permission_classes = [AllowAny]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackendNoHTML, SearchFilter, OrderingFilter]
+    search_fields = ['name', 'email', 'phone']
+    ordering_fields = ['name', 'customer_id']
+    ordering = ['name']

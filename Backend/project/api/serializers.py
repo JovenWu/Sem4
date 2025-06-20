@@ -1,8 +1,20 @@
 from rest_framework import serializers
 from .models import *
-from django.db.models import Sum, Count, Avg
-from django.utils import timezone
-from datetime import datetime, timedelta
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = '__all__'
+
+class SupplierShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = ['supplier_id', 'name']
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = '__all__'
 
 class CategoriesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -77,11 +89,14 @@ class PurchaseOrderItemsSerializer(serializers.ModelSerializer):
 
 class PurchaseOrdersSerializer(serializers.ModelSerializer):
     items = PurchaseOrderItemsSerializer(many=True)
-
+    supplier = SupplierShortSerializer(read_only=True)
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(), source='supplier', write_only=True, required=False
+    )
     class Meta:
         model = PurchaseOrders
         fields = [
-            'po_id', 'supplier_name', 'order_date',
+            'po_id', 'supplier', 'supplier_id', 'order_date',
             'expected_delivery_date', 'status', 'notes',
             'created_at', 'updated_at', 'items'
         ]
@@ -140,11 +155,14 @@ class PurchaseOrdersSerializer(serializers.ModelSerializer):
 
 class PurchaseOrderListSerializer(serializers.ModelSerializer):
     items = PurchaseOrderItemsSerializer(many=True, read_only=True)
-    
+    supplier = SupplierShortSerializer(read_only=True)
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(), source='supplier', write_only=True, required=False
+    )
     class Meta:
         model = PurchaseOrders
         fields = [
-            'po_id', 'supplier_name', 'order_date',
+            'po_id', 'supplier', 'supplier_id', 'order_date',
             'expected_delivery_date', 'status', 'notes',
             'created_at', 'updated_at', 'items'
         ]
@@ -158,11 +176,14 @@ class PurchaseOrderListSerializer(serializers.ModelSerializer):
 
 class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
     items = PurchaseOrderItemsSerializer(many=True)
-
+    supplier = SupplierShortSerializer(read_only=True)
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(), source='supplier', write_only=True, required=False
+    )
     class Meta:
         model = PurchaseOrders
         fields = [
-            'po_id', 'supplier_name', 'order_date',
+            'po_id', 'supplier', 'supplier_id', 'order_date',
             'expected_delivery_date', 'status', 'notes',
             'created_at', 'updated_at', 'items'
         ]
@@ -224,13 +245,29 @@ class SalesRecordsSerializer(serializers.ModelSerializer):
         queryset = Products.objects.all(),
         source='product'
     )
+    customer = serializers.SerializerMethodField(read_only=True)
+    customer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(), source='customer', write_only=True, required=False
+    )
     class Meta:
         model = SalesRecords
         exclude = ('product',)
-    
+
+    def get_customer(self, instance):
+        if instance.customer:
+            return {
+                'customer_id': instance.customer.customer_id,
+                'name': instance.customer.name
+            }
+        return None
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['product_id'] = instance.product.product_id
+        if instance.customer:
+            data['customer_id'] = instance.customer.customer_id
+        else:
+            data['customer_id'] = None
         return data
 
 class DashboardSummarySerializer(serializers.Serializer):

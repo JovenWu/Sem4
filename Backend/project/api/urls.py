@@ -7,6 +7,8 @@ router.register(r'categories', CategoriesViewSet)
 router.register(r'products', ProductsViewSet)
 router.register(r'purchase-order', PurchaseOrdersViewSet)
 router.register(r'sales-records', SalesRecordsViewSet)
+router.register(r'suppliers', SupplierViewSet)
+router.register(r'customers', CustomerViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
