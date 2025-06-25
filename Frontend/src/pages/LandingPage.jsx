@@ -8,14 +8,12 @@ import {
   Users,
   ChevronDown,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function InventoryForecastingLanding() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [activeFeature, setActiveFeature] = useState(0);
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
+  const navigate = useNavigate();
 
   const features = [
     {
@@ -88,12 +86,15 @@ export default function InventoryForecastingLanding() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 rounded-2xl text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 shadow-2xl">
+                <button
+                onClick={() => navigate("/login")}
+                className="cursor-pointer bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 rounded-2xl text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 flex items-center space-x-2 shadow-2xl"
+              >
                 <span>Mulai Gratis</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
 
-              <button className="relative bg-white/10 backdrop-blur-sm border-2 px-8 py-4 rounded-2xl text-lg font-semibold text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105 neon-border-animation">
+              <button onClick={() => navigate("/app")} className="relative bg-white/10 backdrop-blur-sm border-2 px-8 py-4 rounded-2xl text-lg font-semibold text-white hover:bg-white/20 transition-all duration-300 transform hover:scale-105 neon-border-animation">
                 <style jsx>{`
                   .neon-border-animation {
                     animation: neon-border-cycle 4s infinite linear;

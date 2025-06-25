@@ -100,8 +100,6 @@ const LoginForm = () => {
       <CardWrapper
         label="Enter your username and password below to log into your account"
         title="Login"
-        backButtonLabel="Don't have an account? Register here!"
-        backButtonHref="/register"
       >
         {" "}
         {error && (
@@ -144,12 +142,6 @@ const LoginForm = () => {
                 <FormItem>
                   <div className="flex justify-between">
                     <FormLabel>Password</FormLabel>
-                    <Link
-                      to="/forgot-password"
-                      className="text-sm hover:underline text-muted-foreground"
-                    >
-                      Forgot Password?
-                    </Link>
                   </div>
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} />

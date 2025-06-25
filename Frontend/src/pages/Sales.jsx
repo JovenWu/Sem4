@@ -188,7 +188,7 @@ const Sales = () => {
       }
 
       if (category && category !== "all") {
-        params.append("category", category);
+        params.append("category", category); // category is now category_id
       }
 
       const url = `/api/products/?${params.toString()}`;
@@ -963,10 +963,7 @@ const Sales = () => {
                   </div>
                   <Select
                     value={selectedCategory}
-                    onValueChange={(value) => {
-                      setSelectedCategory(value);
-                      setPage(1); // Reset to first page on category change
-                    }}
+                    onValueChange={(value) => setSelectedCategory(value)}
                   >
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="All Categories" />
@@ -976,9 +973,11 @@ const Sales = () => {
                       {Array.isArray(categories) &&
                         categories.map((category, index) => (
                           <SelectItem
-                            key={index}
+                            key={category.category_id || `category-${index}`}
                             value={
-                              (category && category.name) || `category-${index}`
+                              category.category_id
+                                ? String(category.category_id)
+                                : `category-${index}`
                             }
                           >
                             {category && category.name

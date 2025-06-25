@@ -99,15 +99,8 @@ class ProductsViewSet(viewsets.ModelViewSet):
     ordering = ['product_name']
     
     def get_queryset(self):
-        qs = super().get_queryset()
-        
-        # Filter by category if provided (backward compatibility)
-        category_id = self.request.query_params.get('category')
-        if category_id:
-            qs = qs.filter(category__category_id=category_id)
-            
-        return qs
-        
+        return super().get_queryset()
+    
     def list(self, request, *args, **kwargs):
         # Check if forecast is requested
         forecast = request.query_params.get('forecast', '').lower() == 'true'

@@ -63,19 +63,4 @@ export const SalesColumns = [
       );
     },
   },
-  {
-    accessorKey: "total",
-    header: "Total",
-    cell: ({ row }) => {
-      const total = row.getValue("total");
-      return (
-        <div className="font-medium">
-          $
-          {typeof total === "number" && !isNaN(total)
-            ? total.toFixed(2)
-            : "0.00"}
-        </div>
-      );
-    },
-  },
 ];
