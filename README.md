@@ -32,11 +32,11 @@ Welcome to your Inventory Forecasting Web Application! This project is designed 
 
 ## Tech Stack
 
-- **Frontend:** JavaScript (React, Vue, or similar)
-- **Backend:** Python (Flask or Django)
-- **Machine Learning:** Python (scikit-learn, pandas, or similar)
-- **Database:** (e.g., PostgreSQL, MongoDB)
-- **Other:** Docker, REST API
+- **Frontend:** JavaScript (React)
+- **Backend:** Python (Django)
+- **Machine Learning:** Python (scikit-learn, pandas)
+- **Database:** (PostgreSQL)
+- **Other:** REST API
 
 ## Getting Started
 
@@ -44,7 +44,6 @@ Welcome to your Inventory Forecasting Web Application! This project is designed 
 
 - Node.js & npm
 - Python 3.x
-- (Optional) Docker
 
 ### Installation
 
